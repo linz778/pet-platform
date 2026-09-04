@@ -1,6 +1,26 @@
 :root {
-  --pp-primary: #ff7a45;
-  --pp-bg: #f5f6f8;
+  /* 乐宠乐 品牌色 —— 抹茶绿 Matcha Green */
+  --pp-primary: #4e7c59;
+  --pp-primary-strong: #3e6547;
+  --pp-primary-soft: #5e8b67;
+  --pp-tint: #ebf3ee;
+  --pp-tint-2: #ddeade;
+  --pp-bg: #f7faf8;
+  --pp-ink: #23302a;
+  --pp-muted: #6b7c72;
+  --pp-radius: 16px;
+  --pp-shadow: 0 10px 30px rgba(78, 124, 89, 0.06);
+  --pp-shadow-hover: 0 18px 40px rgba(78, 124, 89, 0.14);
+
+  /* 覆盖 Element Plus 主色为抹茶绿，保证 el-button 等组件色彩统一 */
+  --el-color-primary: #4e7c59;
+  --el-color-primary-dark-2: #3e6547;
+  --el-color-primary-light-3: #83a38b;
+  --el-color-primary-light-5: #a7beac;
+  --el-color-primary-light-7: #cad8cd;
+  --el-color-primary-light-8: #dce5de;
+  --el-color-primary-light-9: #edf2ee;
+  --el-border-radius-base: 10px;
 }
 
 * {
@@ -15,10 +35,15 @@ body,
   padding: 0;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
   background: var(--pp-bg);
-  color: #303133;
+  color: var(--pp-ink);
+  -webkit-font-smoothing: antialiased;
 }
 
 .page-container {

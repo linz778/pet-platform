@@ -7,13 +7,15 @@ const routes = [
   { path: '/login', name: 'login', component: () => import('@/views/auth/Login.vue'), meta: { public: true } },
   { path: '/register', name: 'register', component: () => import('@/views/auth/Register.vue'), meta: { public: true } },
 
+  // ===== 门户首页（独立整页，自带 Navbar/Footer） =====
+  { path: '/portal', name: 'portal', component: () => import('@/views/Portal.vue'), meta: { public: true } },
+
   // ===== 前台：用户端 + 接单员端 =====
   {
     path: '/',
     component: DefaultLayout,
     children: [
       { path: '', redirect: '/portal' },
-      { path: 'portal', name: 'portal', component: () => import('@/views/Portal.vue'), meta: { public: true } },
 
       // 用户端
       { path: 'user/home', name: 'user-home', component: () => import('@/views/user/Home.vue'), meta: { roles: ['USER'] } },

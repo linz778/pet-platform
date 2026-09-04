@@ -1,7 +1,7 @@
 <template>
   <el-container class="layout">
     <el-header class="header">
-      <div class="brand" @click="router.push('/portal')">🐾 宠物上门服务平台</div>
+      <div class="brand" @click="router.push('/portal')">🐾 乐宠乐</div>
       <el-menu mode="horizontal" :default-active="route.path" router :ellipsis="false" class="menu">
         <template v-if="userStore.role === 'USER'">
           <el-menu-item index="/user/home">首页</el-menu-item>
