@@ -5,10 +5,13 @@ import com.pet.dto.LoginDTO;
 import com.pet.dto.RegisterDTO;
 import com.pet.entity.User;
 import com.pet.vo.LoginVO;
+import com.pet.vo.UserVO;
 
 public interface UserService extends IService<User> {
 
     LoginVO register(RegisterDTO dto);
 
     LoginVO login(LoginDTO dto);
+
+    UserVO getProfile(Long userId);
 }

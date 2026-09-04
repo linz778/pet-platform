@@ -1,5 +1,6 @@
 package com.pet.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.crypto.digest.BCrypt;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -11,6 +12,7 @@ import com.pet.entity.User;
 import com.pet.mapper.UserMapper;
 import com.pet.service.UserService;
 import com.pet.vo.LoginVO;
+import com.pet.vo.UserVO;
 import com.pet.security.JwtUtil;
 import com.pet.security.LoginUser;
 import lombok.RequiredArgsConstructor;
@@ -52,6 +54,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new BusinessException(ResultCode.ACCOUNT_DISABLED);
         }
         return buildLoginVO(user);
+    }
+
+    @Override
+    public UserVO getProfile(Long userId) {
+        User user = getById(userId);
+        if (user == null) {
+            throw new BusinessException(ResultCode.USER_NOT_FOUND);
+        }
+        return BeanUtil.copyProperties(user, UserVO.class);
     }
 
     private LoginVO buildLoginVO(User user) {
