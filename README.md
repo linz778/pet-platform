@@ -84,6 +84,8 @@ npm run dev
 ```
 - 访问：http://localhost:5173 （已配置 `/api` 代理到后端 8080，无需处理跨域）
 
+> **高德地图配置（LBS 接单大厅 / 上门打卡）**：到 [高德开放平台控制台](https://console.amap.com) 申请 **Web端(JS API)** 类型的 key，填入 `frontend/.env.development` 的 `VITE_AMAP_KEY` 与 `VITE_AMAP_SECURITY_CODE`。加载封装见 `src/utils/amap.js`，可复用地图组件见 `src/components/AmapView.vue`。
+
 ## 种子账号
 
 | 用户名 | 密码 | 角色 |
