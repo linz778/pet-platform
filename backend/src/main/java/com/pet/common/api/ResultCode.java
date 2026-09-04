@@ -33,6 +33,7 @@ public enum ResultCode {
     REVIEW_ALREADY_EXISTS(2009, "该订单您已评价过"),
     PET_NOT_FOUND(2010, "宠物档案不存在"),
     CATEGORY_OFF_SHELF(2011, "该服务已下架"),
+    CATEGORY_NOT_FOUND(2012, "服务类别不存在"),
 
     // 资金 3xxx
     WALLET_NOT_FOUND(3001, "钱包不存在"),
