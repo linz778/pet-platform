@@ -123,11 +123,15 @@ CREATE TABLE t_order (
     amount           DECIMAL(10,2) NOT NULL DEFAULT 0 COMMENT '订单金额',
     commission       DECIMAL(10,2) NOT NULL DEFAULT 0 COMMENT '平台抽成',
     sitter_income    DECIMAL(10,2) NOT NULL DEFAULT 0 COMMENT '接单员佣金',
-    status           TINYINT     NOT NULL DEFAULT 0 COMMENT '0=待支付 1=待接单 2=已接单 3=服务中 4=待验收 5=已完成 6=已取消 7=仲裁中',
+    status           TINYINT     NOT NULL DEFAULT 0 COMMENT '0=待支付 1=待接单 2=已接单 3=服务中 4=待验收 5=已完成 6=已取消 7=仲裁中(本期不触发)',
     pay_status       TINYINT     NOT NULL DEFAULT 0 COMMENT '0=未支付 1=已支付(平台担保) 2=已结算 3=已退款',
+    pay_time         DATETIME             DEFAULT NULL COMMENT '支付时间',
     taken_time       DATETIME             DEFAULT NULL COMMENT '被接单时间',
     checkin_time     DATETIME             DEFAULT NULL COMMENT '到达打卡时间',
     finish_time      DATETIME             DEFAULT NULL COMMENT '完成时间',
+    accept_time      DATETIME             DEFAULT NULL COMMENT '用户验收时间',
+    cancel_time      DATETIME             DEFAULT NULL COMMENT '取消时间',
+    cancel_reason    VARCHAR(255)         DEFAULT NULL COMMENT '取消原因',
     remark           VARCHAR(500)         DEFAULT NULL COMMENT '备注',
     create_time      DATETIME             DEFAULT NULL,
     update_time      DATETIME             DEFAULT NULL,
@@ -168,7 +172,7 @@ CREATE TABLE t_order_evidence (
 DROP TABLE IF EXISTS t_wallet;
 CREATE TABLE t_wallet (
     id          BIGINT   NOT NULL AUTO_INCREMENT,
-    user_id     BIGINT   NOT NULL,
+    user_id     BIGINT   NOT NULL COMMENT '所属用户；约定 0 = 平台佣金账户',
     balance     DECIMAL(12,2) NOT NULL DEFAULT 0 COMMENT '可用余额',
     frozen      DECIMAL(12,2) NOT NULL DEFAULT 0 COMMENT '冻结金额(担保中)',
     total_income DECIMAL(12,2) NOT NULL DEFAULT 0 COMMENT '累计收入',
@@ -184,7 +188,7 @@ CREATE TABLE t_wallet_transaction (
     id           BIGINT   NOT NULL AUTO_INCREMENT,
     wallet_id    BIGINT   NOT NULL,
     user_id      BIGINT   NOT NULL,
-    type         TINYINT  NOT NULL COMMENT '1=充值 2=支付 3=佣金入账 4=提现 5=退款',
+    type         TINYINT  NOT NULL COMMENT '1=充值 2=支付 3=佣金入账 4=提现 5=退款 6=平台佣金',
     amount       DECIMAL(12,2) NOT NULL COMMENT '金额(正负表示收支)',
     order_id     BIGINT            DEFAULT NULL COMMENT '关联订单',
     balance_after DECIMAL(12,2)    DEFAULT NULL COMMENT '变动后余额',
@@ -256,12 +260,21 @@ VALUES ('sitter', '$2a$10$ug6hUJcrjL/3zWdSZ03Uoeo/qI001SsvnErjYT6NaSazDlLr4MiTG'
 INSERT INTO t_service_category (name, code, base_price, unit, holiday_rate, commission_rate, checklist_template, status, create_time, update_time) VALUES
 ('上门喂养', 'FEEDING', 40.00, '次', 1.50, 0.100, '换粮,添水,铲砂,梳毛,陪玩', 1, NOW(), NOW()),
 ('上门洗护', 'GROOMING', 80.00, '次', 1.50, 0.120, '梳毛,洗澡,吹干,剪指甲,清洁耳道', 1, NOW(), NOW()),
-('户外散步', 'WALKING', 30.00, '次', 1.30, 0.100, '出门,牵引,散步轨迹,返程,喂水', 1, NOW(), NOW());
+('户外散步', 'WALKING', 30.00, '次', 1.30, 0.100, '出门,牵引,散步轨迹,返程,喂水', 1, NOW(), NOW()),
+('陪伴互动', 'COMPANION', 35.00, '小时', 1.30, 0.100, '玩具互动,喂食零食,状态观察,陪玩时长记录', 1, NOW(), NOW());
 
 -- 为演示账号建钱包
+-- 注意：user_id = 0 是平台佣金账户（约定），验收结算时平台抽成入账到此账户
 INSERT INTO t_wallet (user_id, balance, frozen, total_income, create_time, update_time)
-VALUES (2, 0.00, 0.00, 0.00, NOW(), NOW()), (3, 0.00, 0.00, 0.00, NOW(), NOW());
+VALUES (0, 0.00, 0.00, 0.00, NOW(), NOW()),
+       (2, 0.00, 0.00, 0.00, NOW(), NOW()),
+       (3, 0.00, 0.00, 0.00, NOW(), NOW());
 
 -- 接单员资质（演示，已通过审核）
 INSERT INTO t_sitter_profile (user_id, real_name, experience_years, audit_status, credit_level, current_lat, current_lng, available, create_time, update_time)
 VALUES (3, '演示接单员', 3, 1, 5, 31.2304000, 121.4737000, 1, NOW(), NOW());
+
+-- 演示主人的宠物档案（下单流程开箱可演示）
+INSERT INTO t_pet (user_id, name, species, breed, gender, age_months, weight_kg, personality, feeding_taboo, create_time, update_time) VALUES
+(2, '豆豆', '狗', '柯基', 1, 26, 11.50, '亲人活泼，喜欢户外散步，见到陌生狗会兴奋吠叫', '禁食巧克力、葡萄、洋葱；每日狗粮定量 150g，分两餐', NOW(), NOW()),
+(2, '奶糖', '猫', '英国短毛猫', 2, 14, 4.20, '性格安静认生，喜欢躲在猫爬架顶层，不喜被抱', '乳糖不耐受，禁止喂牛奶；猫粮需选低敏配方', NOW(), NOW());
