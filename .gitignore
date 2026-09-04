@@ -1,0 +1,19 @@
+# 依赖与构建产物
+node_modules/
+target/
+dist/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 日志与环境
+*.log
+logs/
+.env.local
+.env.*.local

@@ -1,0 +1,32 @@
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 首次运行前请先执行 docs/sql/init.sql 建库建表
+    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DB:pet_platform}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:root}
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      connection-timeout: 30000
+
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      database: 0
+      # 本地 Redis 默认无密码；若你的 Redis 设置了密码，取消下一行注释并填写（勿留空字符串，否则 Redisson 会误发 AUTH）
+      # password: ${REDIS_PASSWORD:}
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+
+# 说明：redisson-spring-boot-starter 会自动读取上面的 spring.data.redis 配置生成 RedissonClient，无需单独配置
+
+logging:
+  level:
+    root: info
+    com.petplatform: debug
