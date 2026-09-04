@@ -17,3 +17,7 @@ Thumbs.db
 logs/
 .env.local
 .env.*.local
+
+# 本地上传目录（pet-platform.file.dir 默认 ./uploads，随进程工作目录漂移，两处都可能出现）
+uploads/
+backend/uploads/
