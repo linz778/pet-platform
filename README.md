@@ -25,12 +25,17 @@ Petplatform/
 ├── backend/                 # Spring Boot 后端（Maven）
 │   ├── pom.xml
 │   └── src/main/
-│       ├── java/com/petplatform/
+│       ├── java/com/pet/
 │       │   ├── PetPlatformApplication.java
-│       │   ├── common/      # Result / 异常 / BaseEntity / 分布式锁 / 健康检查
+│       │   ├── controller/  # 控制层
+│       │   ├── service/     # 业务层 (+impl)
+│       │   ├── mapper/      # 数据层
+│       │   ├── entity/      # 数据库实体
+│       │   ├── dto/         # 入参对象
+│       │   ├── vo/          # 出参对象
+│       │   ├── common/      # Result / 异常 / BaseEntity / 分布式锁
 │       │   ├── config/      # MyBatisPlus / Redis / CORS / OpenAPI
-│       │   ├── security/    # JWT / 登录上下文 / 角色拦截器
-│       │   └── module/      # user pet order sitter payment admin
+│       │   └── security/    # JWT / 登录上下文 / 角色拦截器
 │       └── resources/       # application.yml / application-dev.yml
 ├── frontend/                # Vue3 前端（Vite）
 │   └── src/
@@ -91,7 +96,7 @@ npm run dev
 
 - **统一响应**：所有接口返回 `Result{code,message,data,timestamp}`，`code=200` 为成功。
 - **鉴权**：请求头 `Authorization: Bearer <token>`；角色控制用 `@RequireRole({"ADMIN"})`。
-- **模块结构**：每个 `module/xxx` 下按 `controller / service(+impl) / mapper / entity / dto / vo` 分层。
+- **分层结构**：后端基包 `com.pet`，按 `controller / service(+impl) / mapper / entity / dto / vo` 分层；通用设施置于 `common / config / security`。
 - **抢单防超卖**：使用 `common/lock/DistributedLock`（Redisson），对 `order:grab:{orderId}` 加锁。
 - **逻辑删除**：实体继承 `BaseEntity`，`deleted` 字段自动逻辑删除；`create_time/update_time` 自动填充。
 
