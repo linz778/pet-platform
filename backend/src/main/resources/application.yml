@@ -51,3 +51,10 @@ pet-platform:
   geo:
     # 打卡允许的经纬度误差范围（米）
     check-in-radius: 200
+  file:
+    # 本地上传目录；相对路径按进程工作目录解析，需要固定位置时用 PET_FILE_DIR 指定绝对路径
+    dir: ${PET_FILE_DIR:./uploads}
+    # 对外访问前缀，须与 WebMvcConfig 的资源映射及鉴权白名单一致
+    url-prefix: /uploads
+    # 单文件字节上限，须 ≤ spring.servlet.multipart.max-file-size
+    max-size: 10485760
