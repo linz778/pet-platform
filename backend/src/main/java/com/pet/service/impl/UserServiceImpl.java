@@ -10,21 +10,27 @@ import com.pet.dto.LoginDTO;
 import com.pet.dto.RegisterDTO;
 import com.pet.entity.User;
 import com.pet.mapper.UserMapper;
+import com.pet.service.SitterProfileService;
 import com.pet.service.UserService;
+import com.pet.service.WalletService;
 import com.pet.vo.LoginVO;
 import com.pet.vo.UserVO;
 import com.pet.security.JwtUtil;
 import com.pet.security.LoginUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
     private final JwtUtil jwtUtil;
+    private final WalletService walletService;
+    private final SitterProfileService sitterProfileService;
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public LoginVO register(RegisterDTO dto) {
         boolean exists = baseMapper.exists(Wrappers.<User>lambdaQuery().eq(User::getUsername, dto.getUsername()));
         if (exists) {
@@ -40,6 +46,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         user.setRole(role);
         user.setStatus(1);
         save(user);
+
+        walletService.initWallet(user.getId());
+        if ("SITTER".equals(role)) {
+            sitterProfileService.initProfile(user.getId());
+        }
 
         return buildLoginVO(user);
     }
