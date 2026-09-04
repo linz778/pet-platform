@@ -5,8 +5,8 @@
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @submit.prevent>
         <el-form-item label="身份" prop="role">
           <el-radio-group v-model="form.role">
-            <el-radio-button label="USER">我是宠物主人</el-radio-button>
-            <el-radio-button label="SITTER">我是接单员</el-radio-button>
+            <el-radio-button value="USER">我是宠物主人</el-radio-button>
+            <el-radio-button value="SITTER">我是接单员</el-radio-button>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="用户名" prop="username">
