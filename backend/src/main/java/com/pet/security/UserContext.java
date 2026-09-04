@@ -31,6 +31,15 @@ public class UserContext {
         return require().getUserId();
     }
 
+    /** 当前登录用户角色：USER / SITTER / ADMIN。 */
+    public static String role() {
+        return require().getRole();
+    }
+
+    public static boolean isAdmin() {
+        return "ADMIN".equals(role());
+    }
+
     public static void clear() {
         HOLDER.remove();
     }
