@@ -54,18 +54,19 @@ Petplatform/
 
 ### 1. 初始化数据库
 ```bash
-mysql -uroot -p < docs/sql/init.sql
+mysql -uroot -p --default-character-set=utf8mb4 < docs/sql/init.sql
 ```
 > 默认库名 `pet_platform`。脚本内含种子账号（见下表）。
+> ⚠️ 必须带 `--default-character-set=utf8mb4`：Windows 下 MySQL 客户端默认字符集为 `gbk`，直接导入会因中文默认值（如 `unit DEFAULT '次'`）报 `Invalid default value` 而中断。
 
 ### 2. 启动后端
 先按本机情况修改数据库/Redis 连接（可用环境变量覆盖，无需改代码）：
 
 | 变量 | 默认值 |
 |------|--------|
-| `MYSQL_HOST` / `MYSQL_PORT` / `MYSQL_DB` | localhost / 3306 / pet_platform |
-| `MYSQL_USER` / `MYSQL_PASSWORD` | root / root |
-| `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | localhost / 6379 / (空) |
+| `MYSQL_HOST` / `MYSQL_PORT` / `MYSQL_DB` | 127.0.0.1 / 3306 / pet_platform |
+| `MYSQL_USER` / `MYSQL_PASSWORD` | root / 1234 |
+| `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | 127.0.0.1 / 6379 / (空) |
 | `JWT_SECRET` | 内置默认值（生产务必覆盖）|
 
 ```bash

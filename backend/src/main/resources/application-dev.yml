@@ -4,7 +4,7 @@ spring:
     # 首次运行前请先执行 docs/sql/init.sql 建库建表
     url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DB:pet_platform}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: ${MYSQL_USER:root}
-    password: ${MYSQL_PASSWORD:root}
+    password: ${MYSQL_PASSWORD:1234}
     hikari:
       minimum-idle: 5
       maximum-pool-size: 20
@@ -29,4 +29,4 @@ spring:
 logging:
   level:
     root: info
-    com.petplatform: debug
+    com.pet: debug
