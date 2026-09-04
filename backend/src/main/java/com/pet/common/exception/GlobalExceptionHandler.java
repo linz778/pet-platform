@@ -3,6 +3,8 @@ package com.pet.common.exception;
 import com.pet.common.api.Result;
 import com.pet.common.api.ResultCode;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -41,6 +43,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ConstraintViolationException.class)
     public Result<Void> handleConstraint(ConstraintViolationException e) {
         return Result.fail(ResultCode.VALIDATE_FAILED.getCode(), e.getMessage());
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public Result<Void> handleNotReadable(HttpMessageNotReadableException e) {
+        log.warn("请求体解析失败: {}", e.getMessage());
+        return Result.fail(ResultCode.VALIDATE_FAILED.getCode(), "请求体格式错误，请检查提交的 JSON 是否合法");
+    }
+
+    @ExceptionHandler(DuplicateKeyException.class)
+    public Result<Void> handleDuplicateKey(DuplicateKeyException e) {
+        log.warn("唯一约束冲突: {}", e.getMessage());
+        return Result.fail(ResultCode.VALIDATE_FAILED.getCode(), "数据已存在，请勿重复提交");
     }
 
     @ExceptionHandler(Exception.class)

@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import jakarta.annotation.PostConstruct;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
@@ -23,6 +24,14 @@ public class JwtUtil {
     private static final String CLAIM_ROLE = "role";
 
     private final JwtProperties jwtProperties;
+
+    @PostConstruct
+    void warnIfDefaultSecret() {
+        String secret = jwtProperties.getSecret();
+        if (secret != null && secret.contains("change-me-in-prod")) {
+            log.warn("JWT 正在使用内置默认密钥，生产环境务必通过环境变量 JWT_SECRET 覆盖！");
+        }
+    }
 
     private SecretKey key() {
         return Keys.hmacShaKeyFor(jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8));

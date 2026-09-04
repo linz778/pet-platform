@@ -21,7 +21,7 @@ import java.util.Arrays;
 public class AuthInterceptor implements HandlerInterceptor {
 
     private final JwtUtil jwtUtil;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
@@ -44,7 +44,6 @@ public class AuthInterceptor implements HandlerInterceptor {
             writeError(response, ResultCode.UNAUTHORIZED);
             return false;
         }
-        UserContext.set(user);
 
         RequireRole requireRole = handlerMethod.getMethodAnnotation(RequireRole.class);
         if (requireRole == null) {
@@ -54,6 +53,10 @@ public class AuthInterceptor implements HandlerInterceptor {
             writeError(response, ResultCode.FORBIDDEN);
             return false;
         }
+
+        // 全部校验通过后再写入上下文：preHandle 返回 false 时 afterCompletion 不会触发，
+        // 提前 set 会导致 Tomcat 线程复用时身份残留与 ThreadLocal 泄漏。
+        UserContext.set(user);
         return true;
     }
 

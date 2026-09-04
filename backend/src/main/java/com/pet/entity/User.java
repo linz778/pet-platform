@@ -3,6 +3,7 @@ package com.pet.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.pet.common.entity.BaseEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -20,7 +21,8 @@ public class User extends BaseEntity {
 
     private String username;
 
-    /** BCrypt 加密后的密码 */
+    /** BCrypt 加密后的密码；WRITE_ONLY 确保永不随响应体序列化泄漏 */
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 
     private String phone;

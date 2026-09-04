@@ -24,10 +24,6 @@ public class UserController {
     @GetMapping("/me")
     public Result<User> me() {
         LoginUser loginUser = UserContext.require();
-        User user = userService.getById(loginUser.getUserId());
-        if (user != null) {
-            user.setPassword(null);
-        }
-        return Result.success(user);
+        return Result.success(userService.getById(loginUser.getUserId()));
     }
 }
