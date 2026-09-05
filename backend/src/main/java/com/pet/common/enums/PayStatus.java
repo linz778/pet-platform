@@ -20,4 +20,21 @@ public enum PayStatus {
         this.code = code;
         this.desc = desc;
     }
+
+    public static PayStatus of(Integer code) {
+        if (code == null) {
+            return null;
+        }
+        for (PayStatus s : values()) {
+            if (s.code == code) {
+                return s;
+            }
+        }
+        return null;
+    }
+
+    public static String descOf(Integer code) {
+        PayStatus s = of(code);
+        return s == null ? "" : s.desc;
+    }
 }
