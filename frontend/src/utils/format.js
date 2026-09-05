@@ -32,6 +32,19 @@ export function money(v) {
 }
 
 /**
+ * 公里数转人话。接单大厅的 distanceKm 保留两位小数，直接显示「0.35」看不出是公里还是米。
+ * @param {number|string|null|undefined} km
+ * @returns {string} 例如 '350 m' / '2.4 km'；距离缺失时返回空串
+ */
+export function distanceText(km) {
+  const n = Number(km)
+  if (km === null || km === undefined || km === '' || !Number.isFinite(n) || n < 0) {
+    return ''
+  }
+  return n < 1 ? `${Math.round(n * 1000)} m` : `${n.toFixed(1)} km`
+}
+
+/**
  * Date → 'yyyy-MM-dd HH:mm:ss'，即后端 LocalDateTime 反序列化认的格式。
  *
  * el-date-picker 的 value-format 只格式化用户挑出来的值；
