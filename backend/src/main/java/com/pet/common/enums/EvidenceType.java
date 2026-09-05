@@ -22,4 +22,16 @@ public enum EvidenceType {
         this.code = code;
         this.desc = desc;
     }
+
+    public static String descOf(Integer code) {
+        if (code == null) {
+            return "";
+        }
+        for (EvidenceType t : values()) {
+            if (t.code == code) {
+                return t.desc;
+            }
+        }
+        return "";
+    }
 }

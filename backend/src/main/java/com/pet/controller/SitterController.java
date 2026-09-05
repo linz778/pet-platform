@@ -2,13 +2,18 @@ package com.pet.controller;
 
 import com.pet.common.api.PageResult;
 import com.pet.common.api.Result;
+import com.pet.dto.CheckInDTO;
+import com.pet.dto.EvidenceSaveDTO;
 import com.pet.dto.HallQuery;
 import com.pet.dto.OrderQuery;
 import com.pet.dto.SitterProfileSaveDTO;
+import com.pet.dto.TrackSaveDTO;
 import com.pet.security.RequireRole;
+import com.pet.service.FulfillmentService;
 import com.pet.service.OrderService;
 import com.pet.service.SitterProfileService;
 import com.pet.vo.HallOrderVO;
+import com.pet.vo.OrderEvidenceVO;
 import com.pet.vo.OrderListVO;
 import com.pet.vo.SitterProfileVO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,12 +27,16 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 /**
- * 接单员端：资质档案、接单大厅与抢单。
+ * 接单员端：资质档案、接单大厅、抢单与履约。
  * <p>
- * 整个类只允许 SITTER 角色。资质审核（管理端改 audit_status）不在这里，见 Phase 7 的管理端接口。
+ * 整个类只允许 SITTER 角色。「这一单是不是他接的」属于资源归属，@RequireRole 表达不了，
+ * 由 FulfillmentService / OrderService 逐个方法比对 sitter_id。
+ * 资质审核（管理端改 audit_status）不在这里，见 Phase 7 的管理端接口。
  */
-@Tag(name = "接单员", description = "资质档案、LBS 接单大厅与抢单")
+@Tag(name = "接单员", description = "资质档案、LBS 接单大厅、抢单与履约")
 @RestController
 @RequestMapping("/sitter")
 @RequireRole({"SITTER"})
@@ -36,6 +45,7 @@ public class SitterController {
 
     private final SitterProfileService sitterProfileService;
     private final OrderService orderService;
+    private final FulfillmentService fulfillmentService;
 
     @Operation(summary = "我的资质档案", description = "身份证号只返回脱敏值；auditStatus 0待审 1通过 2驳回")
     @GetMapping("/profile")
@@ -66,5 +76,31 @@ public class SitterController {
     @GetMapping("/order/page")
     public Result<PageResult<OrderListVO>> myOrders(@Valid OrderQuery query) {
         return Result.success(orderService.pageTaken(query));
+    }
+
+    @Operation(summary = "到达定位打卡", description = "已接单 → 服务中；坐标距服务地址超过 pet-platform.geo.check-in-radius 返回 2004")
+    @PostMapping("/order/{orderId}/checkin")
+    public Result<Void> checkIn(@PathVariable Long orderId, @Valid @RequestBody CheckInDTO dto) {
+        fulfillmentService.checkIn(orderId, dto);
+        return Result.success();
+    }
+
+    @Operation(summary = "上传清单存证", description = "服务中逐项拍照，checkItem 必须属于该服务类别的作业清单；同一项重复提交按重拍覆盖")
+    @PostMapping("/order/{orderId}/evidence")
+    public Result<OrderEvidenceVO> saveEvidence(@PathVariable Long orderId, @Valid @RequestBody EvidenceSaveDTO dto) {
+        return Result.success(fulfillmentService.saveChecklistEvidence(orderId, dto));
+    }
+
+    @Operation(summary = "上传散步轨迹", description = "服务中上传轨迹点数组，同一单可多次上传（分段遛）")
+    @PostMapping("/order/{orderId}/track")
+    public Result<OrderEvidenceVO> saveTrack(@PathVariable Long orderId, @Valid @RequestBody TrackSaveDTO dto) {
+        return Result.success(fulfillmentService.saveTrack(orderId, dto));
+    }
+
+    @Operation(summary = "完成服务", description = "服务中 → 待验收；作业清单必须逐项都有存证，缺项返回 2008 并列出还差哪几项")
+    @PostMapping("/order/{orderId}/finish")
+    public Result<Void> finish(@PathVariable Long orderId) {
+        fulfillmentService.finish(orderId);
+        return Result.success();
     }
 }

@@ -6,8 +6,10 @@ import com.pet.dto.OrderCancelDTO;
 import com.pet.dto.OrderCreateDTO;
 import com.pet.dto.OrderQuery;
 import com.pet.security.RequireRole;
+import com.pet.service.FulfillmentService;
 import com.pet.service.OrderService;
 import com.pet.vo.OrderDetailVO;
+import com.pet.vo.OrderEvidenceVO;
 import com.pet.vo.OrderListVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -19,6 +21,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 /**
  * 订单（下单用户侧）。
@@ -34,6 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrderController {
 
     private final OrderService orderService;
+    private final FulfillmentService fulfillmentService;
 
     @Operation(summary = "下单", description = "金额由服务端按下单时刻的服务类别规则算出，落库为待支付")
     @PostMapping
@@ -55,6 +60,14 @@ public class OrderController {
     @RequireRole({"USER", "SITTER", "ADMIN"})
     public Result<OrderDetailVO> detail(@PathVariable Long id) {
         return Result.success(orderService.getDetail(id));
+    }
+
+    @Operation(summary = "履约存证", description = "打卡定位、清单照片与散步轨迹，按上传先后返回；下单用户、该单接单员与管理员可见")
+    @GetMapping("/{id}/evidence")
+    // 同 detail：方法级注解覆盖类上的 USER 限定，验收前用户要能看到接单员拍的每一张照片
+    @RequireRole({"USER", "SITTER", "ADMIN"})
+    public Result<List<OrderEvidenceVO>> evidence(@PathVariable Long id) {
+        return Result.success(fulfillmentService.listEvidence(id));
     }
 
     @Operation(summary = "支付订单", description = "模拟支付：余额转入冻结（平台担保），订单转待接单并进入附近订单索引")
