@@ -33,11 +33,11 @@ public class OrderDetailVO extends OrderListVO {
      * 这不是漏赋值、不要「顺手补上」：全局 Jackson 配了 {@code default-property-inclusion: non_null}，
      * 保持 null 能让这个键在用户的响应里<b>彻底消失</b>，从根上避免把平台分成比例泄露给下单方
      * （用户看到 60 元里平台抽走 6 元、接单员拿 54 元，会直接影响议价与信任）。
+     * <p>
+     * 接单员到手金额 {@code sitterIncome} 同理，但它已上移到父类 {@link OrderListVO}——
+     * 接单员的「我的接单」列表也要显示到手多少，留在子类会与父类字段形成遮蔽。
      */
     private BigDecimal commission;
-
-    /** 接单员到手金额，可见性同 {@link #commission} */
-    private BigDecimal sitterIncome;
 
     // ── 履约时间轴：未发生的节点为 null，键会消失，前端时间轴必须逐节点 v-if 守卫
     private LocalDateTime payTime;
