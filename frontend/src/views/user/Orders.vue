@@ -126,6 +126,13 @@
             </el-timeline-item>
           </el-timeline>
 
+          <!-- 验收前用户必须能看到接单员留下的凭证。已取消的单不渲染：
+               取消只可能发生在待支付/待接单，那时压根没有存证，只会多一个空态 -->
+          <template v-if="[3, 4, 5].includes(detail.status)">
+            <h4 class="drawer-sub">履约存证</h4>
+            <EvidenceList :evidences="evidences" />
+          </template>
+
           <div class="drawer-actions">
             <el-button v-if="detail.status === 0" type="primary" @click="onPay(detail)">立即支付</el-button>
             <el-button v-if="detail.status === 0 || detail.status === 1" @click="onCancel(detail)">取消订单</el-button>
@@ -139,7 +146,8 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { cancelOrder, getOrder, pageMyOrders, payOrder } from '@/api/order'
+import { cancelOrder, getOrder, getOrderEvidence, pageMyOrders, payOrder } from '@/api/order'
+import EvidenceList from '@/components/EvidenceList.vue'
 import { money } from '@/utils/format'
 
 const TABS = { 0: '待支付', 1: '待接单', 2: '已接单', 3: '服务中', 4: '待验收', 5: '已完成', 6: '已取消' }
@@ -154,6 +162,7 @@ const query = reactive({ page: 1, size: 10 })
 const detailVisible = ref(false)
 const loadingDetail = ref(false)
 const detail = ref(null)
+const evidences = ref([])
 
 async function load() {
   loading.value = true
@@ -186,8 +195,12 @@ async function openDetail(id) {
   detailVisible.value = true
   loadingDetail.value = true
   detail.value = null
+  evidences.value = []
   try {
     detail.value = await getOrder(id)
+    evidences.value = [3, 4, 5].includes(detail.value.status)
+      ? await getOrderEvidence(id).catch(() => [])
+      : []
   } catch {
     detailVisible.value = false
   } finally {

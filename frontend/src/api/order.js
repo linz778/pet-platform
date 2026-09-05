@@ -18,6 +18,16 @@ export function getOrder(id) {
   return request.get(`/order/${id}`)
 }
 
+/**
+ * 履约存证（打卡定位 / 清单照片 / 散步轨迹），按上传先后。
+ * 下单用户、该单接单员与管理员都能读；type=1/2/3 各自只有部分字段有值，
+ * 后端 Jackson non_null 会让用不到的键直接消失，渲染时按 type 分支处理。
+ * @param {number} id 订单 id
+ */
+export function getOrderEvidence(id) {
+  return request.get(`/order/${id}/evidence`)
+}
+
 /** 支付（模拟）：余额转入平台担保冻结 */
 export function payOrder(id) {
   return request.post(`/order/${id}/pay`)
