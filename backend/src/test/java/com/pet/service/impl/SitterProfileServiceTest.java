@@ -65,9 +65,8 @@ class SitterProfileServiceTest {
     void updateLocationKeepsAuditState() {
         SitterProfile existing = profile("121.4737000", "31.2304000");
         SitterProfile updated = profile("113.4915000", "23.4505000");
-        when(mapper.selectOne(any(), eq(true))).thenReturn(existing);
+        when(mapper.selectOne(any(), eq(true))).thenReturn(existing, updated);
         when(mapper.update(isNull(), any())).thenReturn(1);
-        when(mapper.selectById(10L)).thenReturn(updated);
 
         SitterLocationDTO dto = new SitterLocationDTO();
         dto.setLng(new BigDecimal("113.4915000"));

@@ -17,6 +17,7 @@ import com.pet.vo.SitterProfileVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Service
@@ -63,13 +64,18 @@ public class SitterProfileServiceImpl extends ServiceImpl<SitterProfileMapper, S
 
     @Override
     public SitterProfileVO updateLocation(SitterLocationDTO dto) {
+        syncSearchLocation(dto.getLng(), dto.getLat());
+        return getMine();
+    }
+
+    @Override
+    public void syncSearchLocation(BigDecimal lng, BigDecimal lat) {
         SitterProfile profile = loadOrInit(UserContext.userId());
         update(Wrappers.<SitterProfile>lambdaUpdate()
                 .eq(SitterProfile::getId, profile.getId())
-                .set(SitterProfile::getCurrentLng, dto.getLng())
-                .set(SitterProfile::getCurrentLat, dto.getLat())
+                .set(SitterProfile::getCurrentLng, lng)
+                .set(SitterProfile::getCurrentLat, lat)
                 .set(SitterProfile::getUpdateTime, LocalDateTime.now()));
-        return toVO(getById(profile.getId()));
     }
 
     @Override

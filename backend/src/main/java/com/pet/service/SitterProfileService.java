@@ -6,6 +6,8 @@ import com.pet.dto.SitterLocationDTO;
 import com.pet.entity.SitterProfile;
 import com.pet.vo.SitterProfileVO;
 
+import java.math.BigDecimal;
+
 public interface SitterProfileService extends IService<SitterProfile> {
 
     /**
@@ -27,6 +29,9 @@ public interface SitterProfileService extends IService<SitterProfile> {
 
     /** 保存大厅检索备用坐标，不触碰资质资料与审核状态。 */
     SitterProfileVO updateLocation(SitterLocationDTO dto);
+
+    /** 地址簿默认项变更时同步大厅的备用搜索坐标；两个参数均可为 null，表示清空。 */
+    void syncSearchLocation(BigDecimal lng, BigDecimal lat);
 
     /**
      * 抢单前置校验：档案存在、审核已通过、且处于可接单状态。

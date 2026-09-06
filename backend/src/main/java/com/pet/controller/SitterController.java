@@ -6,27 +6,32 @@ import com.pet.dto.CheckInDTO;
 import com.pet.dto.EvidenceSaveDTO;
 import com.pet.dto.HallQuery;
 import com.pet.dto.OrderQuery;
+import com.pet.dto.SitterAddressSaveDTO;
 import com.pet.dto.SitterProfileSaveDTO;
 import com.pet.dto.SitterLocationDTO;
 import com.pet.dto.TrackSaveDTO;
 import com.pet.security.RequireRole;
 import com.pet.service.FulfillmentService;
 import com.pet.service.OrderService;
+import com.pet.service.SitterAddressService;
 import com.pet.service.SitterProfileService;
 import com.pet.vo.HallOrderVO;
 import com.pet.vo.OrderEvidenceVO;
 import com.pet.vo.OrderListVO;
+import com.pet.vo.SitterAddressVO;
 import com.pet.vo.SitterProfileVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PutMapping;
 
 import java.util.List;
 
@@ -45,6 +50,7 @@ import java.util.List;
 public class SitterController {
 
     private final SitterProfileService sitterProfileService;
+    private final SitterAddressService sitterAddressService;
     private final OrderService orderService;
     private final FulfillmentService fulfillmentService;
 
@@ -64,6 +70,38 @@ public class SitterController {
     @PostMapping("/location")
     public Result<SitterProfileVO> updateLocation(@Valid @RequestBody SitterLocationDTO dto) {
         return Result.success(sitterProfileService.updateLocation(dto));
+    }
+
+    @Operation(summary = "我的地址簿", description = "默认地址排在最前，坐标用于定位失败时检索附近订单")
+    @GetMapping("/address")
+    public Result<List<SitterAddressVO>> addresses() {
+        return Result.success(sitterAddressService.listMine());
+    }
+
+    @Operation(summary = "新增地址簿地址")
+    @PostMapping("/address")
+    public Result<SitterAddressVO> createAddress(@Valid @RequestBody SitterAddressSaveDTO dto) {
+        return Result.success(sitterAddressService.create(dto));
+    }
+
+    @Operation(summary = "编辑地址簿地址")
+    @PutMapping("/address/{id}")
+    public Result<SitterAddressVO> updateAddress(@PathVariable Long id,
+                                                 @Valid @RequestBody SitterAddressSaveDTO dto) {
+        return Result.success(sitterAddressService.update(id, dto));
+    }
+
+    @Operation(summary = "设为默认地址")
+    @PostMapping("/address/{id}/default")
+    public Result<SitterAddressVO> defaultAddress(@PathVariable Long id) {
+        return Result.success(sitterAddressService.setDefault(id));
+    }
+
+    @Operation(summary = "删除地址簿地址")
+    @DeleteMapping("/address/{id}")
+    public Result<Void> deleteAddress(@PathVariable Long id) {
+        sitterAddressService.delete(id);
+        return Result.success();
     }
 
     @Operation(summary = "接单大厅", description = "以当前坐标为圆心按距离升序检索附近的待接单订单；不含下单用户身份与备注")
