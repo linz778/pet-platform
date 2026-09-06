@@ -55,6 +55,15 @@
               <el-button link @click="openDetail(o.id)">详情</el-button>
               <el-button v-if="o.status === 0" type="primary" size="small" @click="onPay(o)">立即支付</el-button>
               <el-button v-if="o.status === 0 || o.status === 1" size="small" @click="onCancel(o)">取消订单</el-button>
+              <el-button
+                v-if="o.status === 4"
+                type="success"
+                size="small"
+                :loading="acceptingId === o.id"
+                @click="onAccept(o)"
+              >
+                确认验收
+              </el-button>
             </div>
           </footer>
         </article>
@@ -136,6 +145,14 @@
           <div class="drawer-actions">
             <el-button v-if="detail.status === 0" type="primary" @click="onPay(detail)">立即支付</el-button>
             <el-button v-if="detail.status === 0 || detail.status === 1" @click="onCancel(detail)">取消订单</el-button>
+            <el-button
+              v-if="detail.status === 4"
+              type="success"
+              :loading="acceptingId === detail.id"
+              @click="onAccept(detail)"
+            >
+              确认验收并结算
+            </el-button>
           </div>
         </template>
       </div>
@@ -146,7 +163,7 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { cancelOrder, getOrder, getOrderEvidence, pageMyOrders, payOrder } from '@/api/order'
+import { acceptOrder, cancelOrder, getOrder, getOrderEvidence, pageMyOrders, payOrder } from '@/api/order'
 import EvidenceList from '@/components/EvidenceList.vue'
 import { money } from '@/utils/format'
 
@@ -163,6 +180,7 @@ const detailVisible = ref(false)
 const loadingDetail = ref(false)
 const detail = ref(null)
 const evidences = ref([])
+const acceptingId = ref(null)
 
 async function load() {
   loading.value = true
@@ -252,6 +270,31 @@ async function onCancel(order) {
     await load()
   } catch {
     await load()
+  }
+}
+
+async function onAccept(order) {
+  try {
+    await ElMessageBox.confirm(
+      `确认服务已经完成并通过验收？确认后 ¥${money(order.amount)} 担保资金将结算给接单员，操作不可撤销。`,
+      '确认验收',
+      { type: 'warning', confirmButtonText: '验收通过并结算', cancelButtonText: '继续检查' }
+    )
+  } catch {
+    return
+  }
+
+  acceptingId.value = order.id
+  try {
+    await acceptOrder(order.id)
+    ElMessage.success('验收完成，担保资金已结算')
+    detailVisible.value = false
+    await load()
+  } catch {
+    // 服务端用条件更新保证幂等；失败后刷新，避免页面保留过期状态
+    await load()
+  } finally {
+    acceptingId.value = null
   }
 }
 

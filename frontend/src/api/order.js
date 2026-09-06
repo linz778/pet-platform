@@ -37,3 +37,8 @@ export function payOrder(id) {
 export function cancelOrder(id, reason) {
   return request.post(`/order/${id}/cancel`, reason ? { reason } : {})
 }
+
+/** 验收订单：待验收 → 已完成，同时释放担保资金并完成服务结算 */
+export function acceptOrder(id) {
+  return request.post(`/order/${id}/accept`)
+}
