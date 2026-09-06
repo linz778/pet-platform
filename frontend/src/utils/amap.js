@@ -17,7 +17,13 @@ let amapPromise = null
  *
  * Marker / InfoWindow / Circle / Polyline 在 JS API 2.0 属于核心包，无需在此声明。
  */
-export const AMAP_PLUGINS = ['AMap.ToolBar', 'AMap.Scale', 'AMap.Geolocation', 'AMap.PlaceSearch']
+export const AMAP_PLUGINS = [
+  'AMap.ToolBar',
+  'AMap.Scale',
+  'AMap.Geolocation',
+  'AMap.PlaceSearch',
+  'AMap.DistrictSearch'
+]
 
 /**
  * 加载高德地图 JS API 2.0（单例，避免重复注入脚本）。
@@ -95,16 +101,17 @@ export async function searchNearbyPois(keyword, center, radiusMeters = 1000) {
 /**
  * 按关键词检索地点，用于当前位置未知时主动填写一个备用位置。
  * @param {string} keyword 地点名称或地址
+ * @param {string} city 城市名称或行政区编码，缺省为全国
  * @returns {Promise<Array<{id:string,name:string,address:string,district:string,distance:number,lng:number,lat:number}>>}
  */
-export async function searchPois(keyword) {
+export async function searchPois(keyword, city = '全国') {
   const query = keyword?.trim()
   if (!query) return []
 
   const AMap = await loadAMap()
   const placeSearch = new AMap.PlaceSearch({
-    city: '全国',
-    citylimit: false,
+    city,
+    citylimit: city !== '全国',
     pageSize: 10,
     pageIndex: 1,
     extensions: 'base'
@@ -121,6 +128,41 @@ export async function searchPois(keyword) {
         return
       }
       resolve(normalizePois(result.poiList.pois))
+    })
+  })
+}
+
+/**
+ * 加载行政区的直属下级，用于省 / 市 / 区三级选择。
+ * @param {string} keyword 中国、行政区名称或 adcode
+ * @param {'country'|'province'|'city'} level 当前行政区级别
+ * @returns {Promise<Array<{name:string,adcode:string,citycode:string,level:string}>>}
+ */
+export async function searchAdministrativeChildren(keyword, level) {
+  const AMap = await loadAMap()
+  const districtSearch = new AMap.DistrictSearch({
+    level,
+    subdistrict: 1,
+    extensions: 'base'
+  })
+
+  return new Promise((resolve, reject) => {
+    districtSearch.search(keyword, (status, result) => {
+      const children = result?.districtList?.[0]?.districtList
+      if (status === 'no_data' || !children?.length) {
+        resolve([])
+        return
+      }
+      if (status !== 'complete') {
+        reject(new Error(typeof result === 'string' ? result : result?.info || '行政区加载失败'))
+        return
+      }
+      resolve(children.map((item) => ({
+        name: String(item.name || ''),
+        adcode: String(item.adcode || ''),
+        citycode: Array.isArray(item.citycode) ? item.citycode.join(',') : String(item.citycode || ''),
+        level: String(item.level || '')
+      })))
     })
   })
 }

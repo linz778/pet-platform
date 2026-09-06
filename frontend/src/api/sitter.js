@@ -18,6 +18,26 @@ export function updateMyLocation(data) {
   return request.post('/sitter/location', data)
 }
 
+export function listMyAddresses() {
+  return request.get('/sitter/address')
+}
+
+export function createAddress(data) {
+  return request.post('/sitter/address', data)
+}
+
+export function updateAddress(id, data) {
+  return request.put(`/sitter/address/${id}`, data)
+}
+
+export function setDefaultAddress(id) {
+  return request.post(`/sitter/address/${id}/default`)
+}
+
+export function deleteAddress(id) {
+  return request.delete(`/sitter/address/${id}`)
+}
+
 /**
  * 接单大厅：以当前坐标为圆心按距离升序检索附近的待接单订单。
  * 列表里没有下单用户的身份与备注，抢到单之后从订单详情里取。
