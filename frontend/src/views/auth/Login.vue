@@ -1,6 +1,7 @@
 <template>
   <div class="auth-page">
     <el-card class="auth-card">
+      <router-link class="back-link" to="/portal" aria-label="返回首页">← 返回首页</router-link>
       <h2 class="title">🐾 登录</h2>
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @submit.prevent>
         <el-form-item label="用户名" prop="username">
@@ -60,6 +61,19 @@ async function onSubmit() {
 }
 .auth-card {
   width: 380px;
+}
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 8px;
+  color: var(--pp-muted, #606266);
+  font-size: 14px;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+.back-link:hover,
+.back-link:focus-visible {
+  color: var(--pp-primary, #4f855f);
 }
 .title {
   text-align: center;
