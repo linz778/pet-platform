@@ -110,8 +110,19 @@
         </el-form-item>
 
         <el-form-item label="年龄" prop="ageMonths">
-          <el-input-number v-model="form.ageMonths" :min="0" :max="600" :precision="0" :step="1" controls-position="right" />
-          <span class="unit">个月</span>
+          <div class="age-selects">
+            <el-select v-model="ageYears" aria-label="宠物年龄岁数">
+              <el-option v-for="year in AGE_YEAR_OPTIONS" :key="year" :label="`${year} 岁`" :value="year" />
+            </el-select>
+            <el-select v-model="ageRemainderMonths" aria-label="宠物年龄月数">
+              <el-option
+                v-for="month in availableAgeMonthOptions"
+                :key="month"
+                :label="`${month} 个月`"
+                :value="month"
+              />
+            </el-select>
+          </div>
           <span class="hint">{{ petAgeText(form.ageMonths) }}</span>
         </el-form-item>
 
@@ -161,7 +172,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { computed, ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ImageUpload from '@/components/ImageUpload.vue'
 import { listMyPets, createPet, updatePet, deletePet } from '@/api/pet'
@@ -169,6 +180,8 @@ import { petAgeText } from '@/utils/format'
 
 const SPECIES = ['狗', '猫', '其他']
 const GENDER_TEXT = { 0: '性别未知', 1: '♂ 公', 2: '♀ 母' }
+const AGE_YEAR_OPTIONS = Array.from({ length: 51 }, (_, year) => year)
+const AGE_MONTH_OPTIONS = Array.from({ length: 12 }, (_, month) => month)
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -182,7 +195,7 @@ const emptyForm = () => ({
   species: '狗',
   breed: '',
   gender: 0,
-  ageMonths: null,
+  ageMonths: 0,
   weightKg: null,
   avatar: '',
   vaccineCerts: [],
@@ -191,6 +204,26 @@ const emptyForm = () => ({
 })
 
 const form = reactive(emptyForm())
+
+// 接口和数据库继续使用总月数，界面只负责在“岁 / 月”之间双向换算。
+// 后端年龄上限是 600 个月，因此选择 50 岁时月份只能为 0。
+const ageYears = computed({
+  get: () => Math.floor(normalizeAgeMonths(form.ageMonths) / 12),
+  set: (years) => {
+    const year = Number(years)
+    const month = year >= 50 ? 0 : ageRemainderMonths.value
+    form.ageMonths = year * 12 + month
+  }
+})
+
+const ageRemainderMonths = computed({
+  get: () => normalizeAgeMonths(form.ageMonths) % 12,
+  set: (months) => {
+    form.ageMonths = ageYears.value * 12 + Number(months)
+  }
+})
+
+const availableAgeMonthOptions = computed(() => (ageYears.value >= 50 ? [0] : AGE_MONTH_OPTIONS))
 
 const rules = {
   name: [
@@ -204,6 +237,12 @@ function speciesEmoji(species) {
   if (species === '狗') return '🐶'
   if (species === '猫') return '🐱'
   return '🐾'
+}
+
+function normalizeAgeMonths(months) {
+  const value = Number(months)
+  if (!Number.isFinite(value) || value < 0) return 0
+  return Math.min(Math.floor(value), 600)
 }
 
 async function loadPets() {
@@ -231,7 +270,7 @@ function openEdit(pet) {
     species: pet.species ?? '狗',
     breed: pet.breed ?? '',
     gender: pet.gender ?? 0,
-    ageMonths: pet.ageMonths ?? null,
+    ageMonths: normalizeAgeMonths(pet.ageMonths),
     weightKg: pet.weightKg ?? null,
     avatar: pet.avatar ?? '',
     // 拷一份：ImageUpload 内部会改写这个数组，直接引用会污染列表里的原始数据
@@ -444,10 +483,32 @@ onMounted(loadPets)
   font-size: 13px;
 }
 
+.age-selects {
+  display: grid;
+  grid-template-columns: repeat(2, 132px);
+  gap: 10px;
+}
+
+.age-selects .el-select {
+  width: 100%;
+}
+
 .hint {
   margin-left: 12px;
   font-size: 12px;
   color: var(--pp-primary);
+}
+
+@media (max-width: 520px) {
+  .age-selects {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .hint {
+    width: 100%;
+    margin-left: 0;
+  }
 }
 
 .form-tip {
