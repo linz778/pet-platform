@@ -83,4 +83,11 @@ public class OrderController {
         orderService.cancel(id, dto);
         return Result.success();
     }
+
+    @Operation(summary = "验收订单", description = "待验收 → 已完成，担保资金同时结算：接单员到手入其余额，平台抽成入平台账户；重复验收返回 2003")
+    @PostMapping("/{id}/accept")
+    public Result<Void> accept(@PathVariable Long id) {
+        orderService.accept(id);
+        return Result.success();
+    }
 }

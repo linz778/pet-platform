@@ -121,6 +121,30 @@ public class WalletServiceImpl extends ServiceImpl<WalletMapper, Wallet> impleme
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public void settleOrder(Long orderId, Long ownerId, Long sitterId, BigDecimal sitterIncome, BigDecimal commission) {
+        // deductFrozen 的条件是 frozen >= 到手 + 抽成，而支付时冻结的正是这两者之和（订单金额），
+        // 所以返回 0 只有「这笔担保资金已经结算过或被退过」一种可能，必须挡住而不是凭空给两边各加一遍钱
+        if (baseMapper.deductFrozen(ownerId, sitterIncome.add(commission)) == 0) {
+            throw new BusinessException(ResultCode.ORDER_STATUS_ILLEGAL);
+        }
+        credit(sitterId, sitterIncome, TransactionType.COMMISSION_INCOME, orderId, "订单验收，服务佣金入账");
+        credit(Wallet.PLATFORM_USER_ID, commission, TransactionType.PLATFORM_COMMISSION, orderId, "订单验收，平台抽成入账");
+    }
+
+    /**
+     * 收入入账并记流水。
+     * <p>
+     * 收款方不一定有钱包行——平台佣金账户（user_id = 0）是纯约定 id，从没走过 register，
+     * 所以先 requireWallet 补行再入账，否则 addIncome 影响行数为 0，钱划出去了却没人收到。
+     */
+    private void credit(Long userId, BigDecimal amount, TransactionType type, Long orderId, String remark) {
+        Wallet wallet = requireWallet(userId);
+        baseMapper.addIncome(userId, amount);
+        writeTransaction(wallet, type, amount, orderId, remark);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void withdraw(BigDecimal amount) {
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException(ResultCode.WITHDRAW_AMOUNT_ILLEGAL);

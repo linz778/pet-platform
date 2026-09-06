@@ -43,6 +43,17 @@ public interface WalletService extends IService<Wallet> {
     /** 取消已支付订单：担保资金原路退回可用余额。 */
     void refundOrder(Long orderId, Long userId, BigDecimal amount);
 
+    /**
+     * 验收结算：担保资金从下单用户的冻结额中划出，接单员到手与平台抽成分别入账。
+     * <p>
+     * 必须由调用方（{@code OrderService#accept}）在同一事务里先完成 {@code markAccepted}
+     * 的条件更新并确认影响行数为 1，否则重复验收会给接单员和平台各入账两次。
+     * <p>
+     * 刻意不给下单用户写流水：支付时那笔 PAY 已经记录了资金流出，验收只是把担保中的钱
+     * 释放给服务方，对用户可用余额没有任何影响，再记一笔会让用户以为被扣了两次。
+     */
+    void settleOrder(Long orderId, Long ownerId, Long sitterId, BigDecimal sitterIncome, BigDecimal commission);
+
     /** 提现（模拟，即时成功）。超出可用余额抛 WITHDRAW_AMOUNT_ILLEGAL；累计收入不因此减少。 */
     void withdraw(BigDecimal amount);
 }

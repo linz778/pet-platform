@@ -62,4 +62,12 @@ public interface OrderService extends IService<Order> {
 
     /** 当前登录接单员抢到的订单分页，按 id 倒序；status 为空表示全部。 */
     PageResult<OrderListVO> pageTaken(OrderQuery query);
+
+    /**
+     * 验收：待验收 → 已完成，并在同一事务里结算担保资金（接单员到手 + 平台抽成入账）。
+     * <p>
+     * 只有下单用户本人能验收。{@code markAccepted} 的 {@code status = 4 AND pay_status = 1} 条件
+     * 是结算的唯一幂等防线，返回 0 抛 ORDER_STATUS_ILLEGAL，钱绝不会结算两次。
+     */
+    void accept(Long orderId);
 }

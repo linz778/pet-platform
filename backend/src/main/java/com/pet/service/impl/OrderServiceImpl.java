@@ -216,6 +216,21 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void accept(Long orderId) {
+        Long userId = UserContext.userId();
+        Order order = requireOwned(orderId, userId);
+
+        // markAccepted 带 status = 4 AND pay_status = 1 条件，只有影响行数为 1 才允许动钱包。
+        // 用户连点两次验收、或前端超时重试时，第二次会在这里被挡住，接单员与平台不会被重复入账。
+        if (baseMapper.markAccepted(orderId) == 0) {
+            throw new BusinessException(ResultCode.ORDER_STATUS_ILLEGAL);
+        }
+        walletService.settleOrder(orderId, userId, order.getSitterId(),
+                order.getSitterIncome(), order.getCommission());
+    }
+
+    @Override
     public PageResult<HallOrderVO> pageHall(HallQuery query) {
         double lng = query.getLng().doubleValue();
         double lat = query.getLat().doubleValue();

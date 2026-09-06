@@ -27,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -42,6 +43,7 @@ import static org.mockito.Mockito.when;
 class WalletServiceTest {
 
     private static final long USER_ID = 2L;
+    private static final long SITTER_ID = 3L;
     private static final long ORDER_ID = 77L;
 
     @Mock
@@ -76,6 +78,17 @@ class WalletServiceTest {
         wallet.setFrozen(new BigDecimal(frozen));
         wallet.setTotalIncome(new BigDecimal(totalIncome));
         when(walletMapper.selectOne(any())).thenReturn(wallet);
+        return wallet;
+    }
+
+    /** 造任意用户的钱包行，金额全零；结算测试要同时给接单员和平台账户各造一个。 */
+    private Wallet walletOf(long userId, long id) {
+        Wallet wallet = new Wallet();
+        wallet.setId(id);
+        wallet.setUserId(userId);
+        wallet.setBalance(BigDecimal.ZERO);
+        wallet.setFrozen(BigDecimal.ZERO);
+        wallet.setTotalIncome(BigDecimal.ZERO);
         return wallet;
     }
 
@@ -195,6 +208,97 @@ class WalletServiceTest {
                         e -> assertThat(e.getCode()).isEqualTo(ResultCode.ORDER_STATUS_ILLEGAL.getCode()));
 
         verify(transactionMapper, never()).insert(any(WalletTransaction.class));
+    }
+
+    // ───────────────────────── 验收结算 ─────────────────────────
+
+    /**
+     * 结算的三个动作必须一次到位：担保资金从下单用户冻结额划出、接单员到手入账、平台抽成入账。
+     * 少任何一步都表现为「钱消失了」或「平台白干」，且只能靠流水倒查。
+     */
+    @Test
+    @DisplayName("验收结算：冻结划出到手+抽成，接单员与平台各入账一笔，下单用户不再记流水")
+    void settleSplitsEscrowBetweenSitterAndPlatform() {
+        Wallet sitterWallet = walletOf(SITTER_ID, 11L);
+        Wallet platformWallet = walletOf(Wallet.PLATFORM_USER_ID, 12L);
+        // settleOrder 只为两个收款方取钱包（下单用户那边只有 deductFrozen 这一条原子 UPDATE），
+        // 两次 selectOne 的返回按调用顺序对应：先接单员，后平台账户
+        when(walletMapper.selectOne(any())).thenReturn(sitterWallet, platformWallet);
+        when(walletMapper.deductFrozen(USER_ID, new BigDecimal("60.00"))).thenReturn(1);
+        when(walletMapper.selectBalance(SITTER_ID)).thenReturn(new BigDecimal("54.00"));
+        when(walletMapper.selectBalance(Wallet.PLATFORM_USER_ID)).thenReturn(new BigDecimal("6.00"));
+
+        service.settleOrder(ORDER_ID, USER_ID, SITTER_ID, new BigDecimal("54.00"), new BigDecimal("6.00"));
+
+        // 划出的必须恰好是两者之和：多划一分用户亏，少划一分平台垫
+        verify(walletMapper).deductFrozen(USER_ID, new BigDecimal("60.00"));
+        verify(walletMapper).addIncome(SITTER_ID, new BigDecimal("54.00"));
+        verify(walletMapper).addIncome(Wallet.PLATFORM_USER_ID, new BigDecimal("6.00"));
+
+        ArgumentCaptor<WalletTransaction> captor = ArgumentCaptor.forClass(WalletTransaction.class);
+        verify(transactionMapper, times(2)).insert(captor.capture());
+        WalletTransaction income = captor.getAllValues().get(0);
+        assertThat(income.getType()).isEqualTo(TransactionType.COMMISSION_INCOME.getCode());
+        assertThat(income.getAmount()).isEqualByComparingTo("54.00");
+        assertThat(income.getWalletId()).isEqualTo(11L);
+        assertThat(income.getUserId()).isEqualTo(SITTER_ID);
+        assertThat(income.getOrderId()).isEqualTo(ORDER_ID);
+        assertThat(income.getBalanceAfter()).isEqualByComparingTo("54.00");
+
+        WalletTransaction commission = captor.getAllValues().get(1);
+        assertThat(commission.getType()).isEqualTo(TransactionType.PLATFORM_COMMISSION.getCode());
+        assertThat(commission.getAmount()).isEqualByComparingTo("6.00");
+        assertThat(commission.getWalletId()).isEqualTo(12L);
+        assertThat(commission.getUserId()).isEqualTo(Wallet.PLATFORM_USER_ID);
+        assertThat(commission.getOrderId()).isEqualTo(ORDER_ID);
+
+        // 支付时那笔 type=2 已经记录了资金流出，验收只是释放担保，
+        // 再给用户记一笔会让他以为自己被扣了两次
+        assertThat(captor.getAllValues()).extracting(WalletTransaction::getUserId).doesNotContain(USER_ID);
+        verify(walletMapper, never()).addIncome(eq(USER_ID), any());
+    }
+
+    /**
+     * 冻结额不足只有「已经结算过 / 已被退款」两种可能。放过去就是凭空给两边各加一遍钱，
+     * 这是全项目最贵的一条断言。
+     */
+    @Test
+    @DisplayName("重复结算被 deductFrozen 挡住：一分钱不入账，一条流水都不记")
+    void settleRejectsDoubleSettlement() {
+        when(walletMapper.deductFrozen(USER_ID, new BigDecimal("60.00"))).thenReturn(0);
+
+        assertThatThrownBy(() -> service.settleOrder(ORDER_ID, USER_ID, SITTER_ID,
+                new BigDecimal("54.00"), new BigDecimal("6.00")))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getCode()).isEqualTo(ResultCode.ORDER_STATUS_ILLEGAL.getCode()));
+
+        verify(walletMapper, never()).addIncome(any(), any());
+        verify(transactionMapper, never()).insert(any(WalletTransaction.class));
+    }
+
+    /**
+     * 平台佣金账户（user_id = 0）是纯约定 id，从没走过 register，种子脚本没跑或被清库时就缺行。
+     * 缺行时 addIncome 影响行数为 0：钱从用户冻结额里划出去了，却没人收到。
+     */
+    @Test
+    @DisplayName("收款方缺钱包行时懒初始化，平台账户照样能收到抽成")
+    void settleLazilyCreatesMissingPayeeWallet() {
+        when(walletMapper.selectOne(any())).thenReturn(walletOf(SITTER_ID, 11L), null);
+        when(walletMapper.deductFrozen(USER_ID, new BigDecimal("60.00"))).thenReturn(1);
+        when(walletMapper.selectBalance(SITTER_ID)).thenReturn(new BigDecimal("54.00"));
+        when(walletMapper.selectBalance(Wallet.PLATFORM_USER_ID)).thenReturn(new BigDecimal("6.00"));
+
+        service.settleOrder(ORDER_ID, USER_ID, SITTER_ID, new BigDecimal("54.00"), new BigDecimal("6.00"));
+
+        ArgumentCaptor<Wallet> captor = ArgumentCaptor.forClass(Wallet.class);
+        verify(walletMapper).insert(captor.capture());
+        assertThat(captor.getValue().getUserId()).isEqualTo(Wallet.PLATFORM_USER_ID);
+        assertThat(captor.getValue().getBalance()).isEqualByComparingTo("0");
+
+        verify(walletMapper).addIncome(Wallet.PLATFORM_USER_ID, new BigDecimal("6.00"));
+        ArgumentCaptor<WalletTransaction> txCaptor = ArgumentCaptor.forClass(WalletTransaction.class);
+        verify(transactionMapper, times(2)).insert(txCaptor.capture());
+        assertThat(txCaptor.getAllValues().get(1).getUserId()).isEqualTo(Wallet.PLATFORM_USER_ID);
     }
 
     // ───────────────────────── 提现 ─────────────────────────
