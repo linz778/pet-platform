@@ -96,7 +96,34 @@
         </el-form-item>
 
         <el-form-item label="服务地址" prop="serviceAddress">
-          <el-input v-model="form.serviceAddress" placeholder="小区 / 楼栋 / 门牌号" maxlength="255" show-word-limit />
+          <el-autocomplete
+            v-model="form.serviceAddress"
+            class="full"
+            placeholder="输入地点名称，例如：明珠中学"
+            maxlength="255"
+            show-word-limit
+            :fetch-suggestions="searchAddressSuggestions"
+            :trigger-on-focus="false"
+            :debounce="300"
+            value-key="value"
+            @select="selectAddress"
+          >
+            <template #default="{ item }">
+              <div class="address-option">
+                <div class="address-option-main">
+                  <strong>{{ item.name }}</strong>
+                  <el-tag v-if="item.distanceText" size="small" type="info" effect="plain">
+                    {{ item.distanceText }}
+                  </el-tag>
+                </div>
+                <span>{{ item.addressText || '暂无详细地址' }}</span>
+              </div>
+            </template>
+          </el-autocomplete>
+          <div class="form-tip">
+            输入第一个字即搜索当前坐标 1 公里内的地点；选择候选项会自动更新地址坐标和地图标记。
+          </div>
+          <div v-if="addressSearchError" class="form-tip search-error">{{ addressSearchError }}</div>
         </el-form-item>
 
         <el-form-item label="地址坐标" prop="addressLng">
@@ -195,7 +222,7 @@ import { listMyPets } from '@/api/pet'
 import { getMyWallet, recharge } from '@/api/wallet'
 import { createOrder } from '@/api/order'
 import { money, petAgeText, formatDateTime } from '@/utils/format'
-import { getCurrentPosition } from '@/utils/amap'
+import { getCurrentPosition, searchNearbyPois } from '@/utils/amap'
 
 const router = useRouter()
 
@@ -219,6 +246,7 @@ const locating = ref(false)
 const rechargeVisible = ref(false)
 const recharging = ref(false)
 const rechargeAmount = ref(1000)
+const addressSearchError = ref('')
 
 const formRef = ref(null)
 const form = reactive({
@@ -249,6 +277,7 @@ const shortOfBalance = computed(
 // 被 Vue 的 reactive 代理包过之后会直接崩在 setter 上。
 let mapInstance = null
 let markerInstance = null
+let addressSearchSequence = 0
 
 function defaultStart() {
   const d = new Date()
@@ -311,6 +340,50 @@ function onMapError() {
 function applyGeo(lng, lat) {
   form.addressLng = Number(lng.toFixed(7))
   form.addressLat = Number(lat.toFixed(7))
+}
+
+function poiDistanceText(distance) {
+  if (!Number.isFinite(distance) || distance < 0) return ''
+  return distance < 1000 ? `${Math.round(distance)} m` : `${(distance / 1000).toFixed(1)} km`
+}
+
+async function searchAddressSuggestions(keyword, callback) {
+  const query = keyword.trim()
+  const sequence = ++addressSearchSequence
+  addressSearchError.value = ''
+  if (!query) {
+    callback([])
+    return
+  }
+
+  try {
+    const pois = await searchNearbyPois(query, [form.addressLng, form.addressLat], 1000)
+    // 用户已经继续输入时，丢弃较早请求的结果，避免旧关键词覆盖新下拉栏
+    if (sequence !== addressSearchSequence) return
+    callback(
+      pois.map((poi) => {
+        const addressText = `${poi.district}${poi.address}`
+        return {
+          ...poi,
+          addressText,
+          distanceText: poiDistanceText(poi.distance),
+          value: addressText ? `${poi.name} · ${addressText}` : poi.name
+        }
+      })
+    )
+  } catch {
+    if (sequence !== addressSearchSequence) return
+    addressSearchError.value = '附近地址检索失败，请检查高德 Key、域名白名单或网络后重试。'
+    callback([])
+  }
+}
+
+function selectAddress(item) {
+  form.serviceAddress = item.value
+  applyGeo(item.lng, item.lat)
+  markerInstance?.setPosition([item.lng, item.lat])
+  mapInstance?.setZoomAndCenter(17, [item.lng, item.lat])
+  formRef.value?.clearValidate('serviceAddress')
 }
 
 async function locateMe() {
@@ -538,6 +611,37 @@ onMounted(async () => {
   font-size: 12px;
   color: var(--pp-muted);
   line-height: 1.6;
+}
+
+.form-tip.search-error {
+  color: var(--el-color-danger);
+}
+
+.address-option {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 5px 0;
+  line-height: 1.4;
+}
+
+.address-option-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.address-option-main strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.address-option > span {
+  overflow: hidden;
+  color: var(--pp-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
 }
 
 .geo-row {

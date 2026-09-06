@@ -17,7 +17,7 @@ let amapPromise = null
  *
  * Marker / InfoWindow / Circle / Polyline 在 JS API 2.0 属于核心包，无需在此声明。
  */
-export const AMAP_PLUGINS = ['AMap.ToolBar', 'AMap.Scale', 'AMap.Geolocation']
+export const AMAP_PLUGINS = ['AMap.ToolBar', 'AMap.Scale', 'AMap.Geolocation', 'AMap.PlaceSearch']
 
 /**
  * 加载高德地图 JS API 2.0（单例，避免重复注入脚本）。
@@ -53,5 +53,57 @@ export function getCurrentPosition() {
       (err) => reject(err),
       { enableHighAccuracy: true, timeout: 10000 }
     )
+  })
+}
+
+/**
+ * 按关键词检索中心点附近的 POI。
+ * @param {string} keyword 地点关键词，支持单个汉字
+ * @param {[number, number]} center [经度, 纬度]
+ * @param {number} radiusMeters 半径（米），高德允许 0-50000
+ * @returns {Promise<Array<{id:string,name:string,address:string,district:string,distance:number,lng:number,lat:number}>>}
+ */
+export async function searchNearbyPois(keyword, center, radiusMeters = 1000) {
+  const query = keyword?.trim()
+  const lng = Number(center?.[0])
+  const lat = Number(center?.[1])
+  if (!query || !Number.isFinite(lng) || !Number.isFinite(lat)) return []
+
+  const AMap = await loadAMap()
+  const placeSearch = new AMap.PlaceSearch({
+    pageSize: 10,
+    pageIndex: 1,
+    extensions: 'base'
+  })
+
+  return new Promise((resolve, reject) => {
+    placeSearch.searchNearBy(query, [lng, lat], radiusMeters, (status, result) => {
+      if (status === 'no_data') {
+        resolve([])
+        return
+      }
+      if (status !== 'complete' || !result?.poiList?.pois) {
+        reject(new Error(typeof result === 'string' ? result : result?.info || '附近地址检索失败'))
+        return
+      }
+
+      const pois = result.poiList.pois
+        .map((poi) => {
+          const poiLng = Number(poi.location?.getLng?.() ?? poi.location?.lng)
+          const poiLat = Number(poi.location?.getLat?.() ?? poi.location?.lat)
+          if (!Number.isFinite(poiLng) || !Number.isFinite(poiLat)) return null
+          return {
+            id: poi.id,
+            name: String(poi.name || ''),
+            address: Array.isArray(poi.address) ? poi.address.join('') : String(poi.address || ''),
+            district: String(poi.district || ''),
+            distance: Number(poi.distance),
+            lng: poiLng,
+            lat: poiLat
+          }
+        })
+        .filter(Boolean)
+      resolve(pois)
+    })
   })
 }
