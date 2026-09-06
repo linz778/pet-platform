@@ -87,23 +87,59 @@ export async function searchNearbyPois(keyword, center, radiusMeters = 1000) {
         return
       }
 
-      const pois = result.poiList.pois
-        .map((poi) => {
-          const poiLng = Number(poi.location?.getLng?.() ?? poi.location?.lng)
-          const poiLat = Number(poi.location?.getLat?.() ?? poi.location?.lat)
-          if (!Number.isFinite(poiLng) || !Number.isFinite(poiLat)) return null
-          return {
-            id: poi.id,
-            name: String(poi.name || ''),
-            address: Array.isArray(poi.address) ? poi.address.join('') : String(poi.address || ''),
-            district: String(poi.district || ''),
-            distance: Number(poi.distance),
-            lng: poiLng,
-            lat: poiLat
-          }
-        })
-        .filter(Boolean)
-      resolve(pois)
+      resolve(normalizePois(result.poiList.pois))
     })
   })
+}
+
+/**
+ * 按关键词检索地点，用于当前位置未知时主动填写一个备用位置。
+ * @param {string} keyword 地点名称或地址
+ * @returns {Promise<Array<{id:string,name:string,address:string,district:string,distance:number,lng:number,lat:number}>>}
+ */
+export async function searchPois(keyword) {
+  const query = keyword?.trim()
+  if (!query) return []
+
+  const AMap = await loadAMap()
+  const placeSearch = new AMap.PlaceSearch({
+    city: '全国',
+    citylimit: false,
+    pageSize: 10,
+    pageIndex: 1,
+    extensions: 'base'
+  })
+
+  return new Promise((resolve, reject) => {
+    placeSearch.search(query, (status, result) => {
+      if (status === 'no_data') {
+        resolve([])
+        return
+      }
+      if (status !== 'complete' || !result?.poiList?.pois) {
+        reject(new Error(typeof result === 'string' ? result : result?.info || '地址检索失败'))
+        return
+      }
+      resolve(normalizePois(result.poiList.pois))
+    })
+  })
+}
+
+function normalizePois(pois) {
+  return pois
+    .map((poi) => {
+      const poiLng = Number(poi.location?.getLng?.() ?? poi.location?.lng)
+      const poiLat = Number(poi.location?.getLat?.() ?? poi.location?.lat)
+      if (!Number.isFinite(poiLng) || !Number.isFinite(poiLat)) return null
+      return {
+        id: poi.id,
+        name: String(poi.name || ''),
+        address: Array.isArray(poi.address) ? poi.address.join('') : String(poi.address || ''),
+        district: String(poi.district || ''),
+        distance: Number(poi.distance),
+        lng: poiLng,
+        lat: poiLat
+      }
+    })
+    .filter(Boolean)
 }

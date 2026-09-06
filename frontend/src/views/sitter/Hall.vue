@@ -56,6 +56,7 @@
             <span class="filter-value">{{ center.lng.toFixed(4) }}, {{ center.lat.toFixed(4) }}</span>
             <el-tag size="small" effect="plain" type="info">{{ LOCATION_SOURCE_TEXT[locationSource] }}</el-tag>
             <el-button link type="primary" :loading="locating" @click="relocate">重新定位</el-button>
+            <el-button link type="primary" @click="openLocationDialog">填写位置</el-button>
           </div>
           <div class="filter-item">
             <span class="filter-label">检索半径</span>
@@ -143,6 +144,58 @@
       </el-card>
     </template>
 
+    <el-dialog v-model="locationDialogVisible" title="设置接单搜索位置" width="560px">
+      <el-form ref="locationFormRef" :model="locationForm" :rules="locationRules" label-width="86px">
+        <el-form-item label="位置名称">
+          <el-autocomplete
+            v-model="locationForm.address"
+            class="location-search"
+            placeholder="输入小区、学校、商场或详细地址"
+            :fetch-suggestions="searchLocationSuggestions"
+            :trigger-on-focus="false"
+            :debounce="300"
+            value-key="value"
+            clearable
+            @select="selectLocationSuggestion"
+          >
+            <template #default="{ item }">
+              <div class="location-option">
+                <strong>{{ item.name }}</strong>
+                <span>{{ item.detail || '暂无详细地址' }}</span>
+              </div>
+            </template>
+          </el-autocomplete>
+          <div class="form-tip">输入关键词后请选择一个候选地点，系统会自动填入经纬度。</div>
+          <div v-if="locationSearchError" class="form-tip search-error">{{ locationSearchError }}</div>
+        </el-form-item>
+        <el-form-item label="位置坐标" prop="lng">
+          <div class="coordinate-row">
+            <el-input-number
+              v-model="locationForm.lng"
+              :controls="false"
+              :precision="7"
+              :min="-180"
+              :max="180"
+              placeholder="经度"
+            />
+            <el-input-number
+              v-model="locationForm.lat"
+              :controls="false"
+              :precision="7"
+              :min="-90"
+              :max="90"
+              placeholder="纬度"
+            />
+          </div>
+          <div class="form-tip">也可以直接填写经纬度；保存后立即以此位置刷新附近订单。</div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="locationDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="savingLocation" @click="saveManualLocation">保存并搜索</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="profileDialogVisible" title="接单员资质" width="560px">
       <el-form ref="profileFormRef" :model="profileForm" :rules="profileRules" label-width="96px">
         <el-form-item label="真实姓名" prop="realName">
@@ -182,15 +235,15 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AmapView from '@/components/AmapView.vue'
 import ImageUpload from '@/components/ImageUpload.vue'
-import { getMySitterProfile, grabOrder, pageHallOrders, submitSitterProfile } from '@/api/sitter'
+import { getMySitterProfile, grabOrder, pageHallOrders, submitSitterProfile, updateMyLocation } from '@/api/sitter'
 import { distanceText, money } from '@/utils/format'
-import { getCurrentPosition } from '@/utils/amap'
+import { getCurrentPosition, searchPois } from '@/utils/amap'
 
 const router = useRouter()
 
 const AUDIT_TAG = { 0: 'warning', 1: 'success', 2: 'danger' }
 const RADIUS_OPTIONS = [1, 3, 5, 10, 20]
-const LOCATION_SOURCE_TEXT = { geo: '浏览器定位', profile: '档案坐标', default: '演示默认坐标' }
+const LOCATION_SOURCE_TEXT = { geo: '浏览器定位', manual: '手动位置', profile: '备用位置', default: '演示默认坐标' }
 // 与种子接单员、演示订单一致的坐标：定位不可用时用它兜底，大厅仍能检索到演示订单
 const DEFAULT_CENTER = { lng: 121.4737, lat: 31.2304 }
 const CATEGORY_EMOJI = { FEEDING: '🍚', GROOMING: '🛁', WALKING: '🦮', COMPANION: '🧸' }
@@ -209,6 +262,30 @@ const center = reactive({ ...DEFAULT_CENTER })
 const locationSource = ref('default')
 const locating = ref(false)
 const radiusKm = ref(5)
+
+const locationDialogVisible = ref(false)
+const savingLocation = ref(false)
+const locationFormRef = ref(null)
+const locationSearchError = ref('')
+const locationForm = reactive({ address: '', lng: null, lat: null })
+const locationRules = {
+  lng: [
+    { required: true, message: '请搜索并选择位置，或填写经纬度', trigger: 'change' },
+    {
+      validator: (_rule, _value, callback) => {
+        const lng = Number(locationForm.lng)
+        const lat = Number(locationForm.lat)
+        if (!Number.isFinite(lng) || lng < -180 || lng > 180 || !Number.isFinite(lat) || lat < -90 || lat > 90) {
+          callback(new Error('经纬度取值不合法'))
+          return
+        }
+        callback()
+      },
+      trigger: 'change'
+    }
+  ]
+}
+let locationSearchSequence = 0
 
 const orders = ref([])
 const total = ref(0)
@@ -285,6 +362,64 @@ async function relocate() {
     locating.value = false
   }
   await load()
+}
+
+function openLocationDialog() {
+  Object.assign(locationForm, {
+    address: '',
+    lng: center.lng,
+    lat: center.lat
+  })
+  locationSearchError.value = ''
+  locationDialogVisible.value = true
+}
+
+async function searchLocationSuggestions(keyword, callback) {
+  const query = keyword?.trim()
+  const sequence = ++locationSearchSequence
+  locationSearchError.value = ''
+  if (!query) {
+    callback([])
+    return
+  }
+  try {
+    const pois = await searchPois(query)
+    if (sequence !== locationSearchSequence) return
+    callback(pois.map((poi) => ({
+      ...poi,
+      detail: `${poi.district}${poi.address}`,
+      value: `${poi.name}${poi.district || poi.address ? ` · ${poi.district}${poi.address}` : ''}`
+    })))
+  } catch {
+    if (sequence !== locationSearchSequence) return
+    locationSearchError.value = '地点搜索失败，请检查高德地图配置，或直接填写经纬度。'
+    callback([])
+  }
+}
+
+function selectLocationSuggestion(item) {
+  locationForm.address = item.value
+  locationForm.lng = item.lng
+  locationForm.lat = item.lat
+  locationFormRef.value?.clearValidate('lng')
+}
+
+async function saveManualLocation() {
+  const ok = await locationFormRef.value.validate().catch(() => false)
+  if (!ok) return
+  savingLocation.value = true
+  try {
+    profile.value = await updateMyLocation({ lng: locationForm.lng, lat: locationForm.lat })
+    applyCenter(locationForm.lng, locationForm.lat, 'manual')
+    query.page = 1
+    locationDialogVisible.value = false
+    await load()
+    ElMessage.success('备用位置已保存，并已刷新附近订单')
+  } catch {
+    // 拦截器已提示
+  } finally {
+    savingLocation.value = false
+  }
 }
 
 function onFilterChange() {
@@ -496,6 +631,45 @@ onMounted(async () => {
 .filter-value {
   font-family: monospace;
   font-size: 13px;
+}
+
+.location-search {
+  width: 100%;
+}
+
+.location-option {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 4px 0;
+  line-height: 1.5;
+}
+
+.location-option strong,
+.location-option span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.location-option span {
+  color: var(--pp-muted);
+  font-size: 12px;
+}
+
+.coordinate-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+.coordinate-row .el-input-number {
+  width: 100%;
+}
+
+.search-error {
+  color: var(--el-color-danger);
 }
 
 .map-hint {

@@ -13,6 +13,11 @@ export function submitSitterProfile(data) {
   return request.post('/sitter/profile', data)
 }
 
+/** 保存浏览器定位不可用时使用的大厅检索备用坐标。 */
+export function updateMyLocation(data) {
+  return request.post('/sitter/location', data)
+}
+
 /**
  * 接单大厅：以当前坐标为圆心按距离升序检索附近的待接单订单。
  * 列表里没有下单用户的身份与备注，抢到单之后从订单详情里取。

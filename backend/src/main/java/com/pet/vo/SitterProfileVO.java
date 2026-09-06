@@ -45,10 +45,7 @@ public class SitterProfileVO {
     /** 0=暂停接单 1=可接单 */
     private Integer available;
 
-    /**
-     * 建档时记录的坐标。本期没有位置上报链路，所以它不是实时位置，
-     * 前端只在浏览器定位被拒时拿它当大厅检索的兜底圆心（种子接单员的坐标与演示订单一致）。
-     */
+    /** 接单员保存的大厅检索备用坐标；浏览器定位被拒时作为兜底圆心。 */
     private BigDecimal currentLng;
 
     private BigDecimal currentLat;

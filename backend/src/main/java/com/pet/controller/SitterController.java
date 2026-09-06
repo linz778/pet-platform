@@ -7,6 +7,7 @@ import com.pet.dto.EvidenceSaveDTO;
 import com.pet.dto.HallQuery;
 import com.pet.dto.OrderQuery;
 import com.pet.dto.SitterProfileSaveDTO;
+import com.pet.dto.SitterLocationDTO;
 import com.pet.dto.TrackSaveDTO;
 import com.pet.security.RequireRole;
 import com.pet.service.FulfillmentService;
@@ -57,6 +58,12 @@ public class SitterController {
     @PostMapping("/profile")
     public Result<SitterProfileVO> submitProfile(@Valid @RequestBody SitterProfileSaveDTO dto) {
         return Result.success(sitterProfileService.submit(dto));
+    }
+
+    @Operation(summary = "保存检索位置", description = "浏览器定位不可用时手动设置大厅检索中心；不改变资质审核状态")
+    @PostMapping("/location")
+    public Result<SitterProfileVO> updateLocation(@Valid @RequestBody SitterLocationDTO dto) {
+        return Result.success(sitterProfileService.updateLocation(dto));
     }
 
     @Operation(summary = "接单大厅", description = "以当前坐标为圆心按距离升序检索附近的待接单订单；不含下单用户身份与备注")

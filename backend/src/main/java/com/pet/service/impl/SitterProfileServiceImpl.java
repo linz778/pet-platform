@@ -8,6 +8,7 @@ import com.pet.common.api.ResultCode;
 import com.pet.common.enums.AuditStatus;
 import com.pet.common.exception.BusinessException;
 import com.pet.dto.SitterProfileSaveDTO;
+import com.pet.dto.SitterLocationDTO;
 import com.pet.entity.SitterProfile;
 import com.pet.mapper.SitterProfileMapper;
 import com.pet.security.UserContext;
@@ -57,6 +58,17 @@ public class SitterProfileServiceImpl extends ServiceImpl<SitterProfileMapper, S
                 .set(SitterProfile::getAuditRemark, null)
                 .set(SitterProfile::getUpdateTime, LocalDateTime.now()));
 
+        return toVO(getById(profile.getId()));
+    }
+
+    @Override
+    public SitterProfileVO updateLocation(SitterLocationDTO dto) {
+        SitterProfile profile = loadOrInit(UserContext.userId());
+        update(Wrappers.<SitterProfile>lambdaUpdate()
+                .eq(SitterProfile::getId, profile.getId())
+                .set(SitterProfile::getCurrentLng, dto.getLng())
+                .set(SitterProfile::getCurrentLat, dto.getLat())
+                .set(SitterProfile::getUpdateTime, LocalDateTime.now()));
         return toVO(getById(profile.getId()));
     }
 

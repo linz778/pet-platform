@@ -12,8 +12,8 @@ import java.math.BigDecimal;
 /**
  * 接单大厅检索条件：以接单员当前坐标为圆心找附近的待接单订单。
  * <p>
- * 坐标必须由前端提供，不能改读 t_sitter_profile.current_lng/lat：本期没有位置上报链路，
- * 那两列只是建档时的固定坐标，拿它当圆心会把「人已经走开了」的旧位置当成当前位置。
+ * 坐标必须由前端提供，不能直接读取 t_sitter_profile.current_lng/lat：浏览器实时定位优先，
+ * 接单员保存的坐标只在定位不可用时作为备用位置。
  */
 @Data
 @EqualsAndHashCode(callSuper = true)

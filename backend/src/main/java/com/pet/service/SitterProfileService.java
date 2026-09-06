@@ -2,6 +2,7 @@ package com.pet.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.pet.dto.SitterProfileSaveDTO;
+import com.pet.dto.SitterLocationDTO;
 import com.pet.entity.SitterProfile;
 import com.pet.vo.SitterProfileVO;
 
@@ -23,6 +24,9 @@ public interface SitterProfileService extends IService<SitterProfile> {
      * 已通过审核的档案不允许自助修改，抛 SITTER_ALREADY_AUDITED。
      */
     SitterProfileVO submit(SitterProfileSaveDTO dto);
+
+    /** 保存大厅检索备用坐标，不触碰资质资料与审核状态。 */
+    SitterProfileVO updateLocation(SitterLocationDTO dto);
 
     /**
      * 抢单前置校验：档案存在、审核已通过、且处于可接单状态。
