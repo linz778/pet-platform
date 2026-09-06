@@ -21,6 +21,7 @@ public enum ResultCode {
     SITTER_NOT_AVAILABLE(1006, "当前处于不可接单状态"),
     SITTER_ALREADY_AUDITED(1007, "资质已通过审核，如需修改请联系平台"),
     SITTER_ADDRESS_NOT_FOUND(1008, "地址不存在"),
+    USER_ADDRESS_NOT_FOUND(1009, "地址不存在"),
 
     // 订单 / 抢单 / 履约 2xxx
     ORDER_NOT_FOUND(2001, "订单不存在"),
