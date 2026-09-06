@@ -43,8 +43,8 @@ springdoc:
 # 业务自定义配置
 pet-platform:
   jwt:
-    # 生产环境请通过环境变量覆盖，勿硬编码密钥
-    secret: ${JWT_SECRET:pet-platform-default-secret-key-change-me-in-prod-0123456789}
+    # 不提供公开默认值；启动前必须通过环境变量注入至少 32 字节的随机密钥
+    secret: ${JWT_SECRET}
     expire-minutes: 720
     header: Authorization
     prefix: "Bearer "

@@ -65,9 +65,16 @@ mysql -uroot -p --default-character-set=utf8mb4 < docs/sql/init.sql
 | 变量 | 默认值 |
 |------|--------|
 | `MYSQL_HOST` / `MYSQL_PORT` / `MYSQL_DB` | 127.0.0.1 / 3306 / pet_platform |
-| `MYSQL_USER` / `MYSQL_PASSWORD` | root / 1234 |
+| `MYSQL_USER` / `MYSQL_PASSWORD` | root / 必填，无默认值 |
 | `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | 127.0.0.1 / 6379 / (空) |
-| `JWT_SECRET` | 内置默认值（生产务必覆盖）|
+| `JWT_SECRET` | 必填，无默认值；至少 32 字节的随机字符串 |
+
+敏感配置只能放在本机环境变量或部署平台的 Secret 管理中，不要写入仓库内的配置文件。例如在当前 PowerShell 会话中：
+
+```powershell
+$env:MYSQL_PASSWORD = "你的本地数据库密码"
+$env:JWT_SECRET = "至少32字节的随机密钥"
+```
 
 ```bash
 cd backend

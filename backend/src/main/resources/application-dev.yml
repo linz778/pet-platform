@@ -4,7 +4,8 @@ spring:
     # 首次运行前请先执行 docs/sql/init.sql 建库建表
     url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DB:pet_platform}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: ${MYSQL_USER:root}
-    password: ${MYSQL_PASSWORD:1234}
+    # 不在公开仓库提供数据库密码；启动前通过环境变量注入
+    password: ${MYSQL_PASSWORD}
     hikari:
       minimum-idle: 5
       maximum-pool-size: 20
