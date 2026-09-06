@@ -4,7 +4,7 @@
       <div class="head">
         <div class="head-text">
           <h2 class="title">🏠 预约上门服务</h2>
-          <p class="subtitle">选一项服务、一只宠物、一个上门时间，地图上标好地址就能下单。支付后进入接单大厅等待接单员抢单。</p>
+          <p class="subtitle">先挑选需要的服务，再填写本次预约。常用地址保存一次，以后下单直接使用。</p>
         </div>
         <div class="wallet-strip">
           <div class="wallet-item">
@@ -21,7 +21,7 @@
     </el-card>
 
     <el-alert
-      v-if="shortOfBalance"
+      v-if="form.categoryId && shortOfBalance"
       class="balance-alert"
       type="warning"
       show-icon
@@ -29,13 +29,19 @@
       title="余额不足以支付这一单"
     >
       <template #default>
-        当前可用 ¥{{ money(wallet.balance) }}，本单需 ¥{{ money(price.amount) }}。可以先下单再去「我的订单」充值后支付。
+        当前可用 ¥{{ money(wallet.balance) }}，本单需 ¥{{ money(price.amount) }}。可以先下单，再去“我的订单”充值支付。
         <el-button link type="primary" @click="openRecharge">立即充值</el-button>
       </template>
     </el-alert>
 
-    <el-card v-loading="loadingCategories" class="section-card">
-      <h3 class="section-title">1. 选择服务</h3>
+    <el-card v-loading="loadingCategories" class="section-card service-card">
+      <div class="section-head">
+        <div>
+          <h3 class="section-title">选择你需要的服务</h3>
+          <p>选择后才会展开预约信息，不让页面一进来就堆满表单。</p>
+        </div>
+        <el-tag v-if="selectedCategory" type="success" effect="plain">已选：{{ selectedCategory.name }}</el-tag>
+      </div>
       <el-empty v-if="!loadingCategories && categories.length === 0" description="暂无上架服务，请联系平台" />
       <div v-else class="cat-grid">
         <button
@@ -46,6 +52,7 @@
           :class="{ active: form.categoryId === c.id }"
           @click="pickCategory(c.id)"
         >
+          <span class="cat-check">{{ form.categoryId === c.id ? '✓' : '' }}</span>
           <span class="cat-emoji">{{ CATEGORY_EMOJI[c.code] ?? '🐾' }}</span>
           <span class="cat-name">{{ c.name }}</span>
           <span class="cat-price">¥{{ money(c.basePrice) }}<em>/{{ c.unit || '次' }}</em></span>
@@ -54,141 +61,248 @@
       </div>
     </el-card>
 
-    <el-card class="section-card">
-      <h3 class="section-title">2. 填写预约信息</h3>
-      <el-form ref="formRef" :model="form" :rules="rules" label-width="96px" label-position="right">
-        <el-form-item label="服务宠物" prop="petId">
-          <el-select v-model="form.petId" placeholder="请选择宠物" class="full" :disabled="pets.length === 0">
-            <el-option v-for="p in pets" :key="p.id" :label="p.name" :value="p.id">
-              <span>{{ p.name }}</span>
-              <span class="opt-hint">{{ p.species || '未填物种' }} · {{ petAgeText(p.ageMonths) }}</span>
-            </el-option>
-          </el-select>
-          <div v-if="pets.length === 0" class="form-tip">
-            还没有宠物档案，
-            <el-button link type="primary" @click="router.push('/user/pets')">先去添加一只</el-button>
+    <template v-if="form.categoryId">
+      <el-card class="section-card booking-card">
+        <div class="section-head">
+          <div>
+            <h3 class="section-title">填写本次预约</h3>
+            <p>{{ selectedCategory?.name }} · 只需确认宠物、时间和服务地址</p>
           </div>
-          <div v-else-if="selectedPet && selectedPet.feedingTaboo" class="form-tip">
-            喂养禁忌：{{ selectedPet.feedingTaboo }}
+          <span class="step-badge">第 2 步</span>
+        </div>
+
+        <el-form ref="formRef" :model="form" :rules="rules" label-width="96px" label-position="right">
+          <el-form-item label="服务宠物" prop="petId">
+            <el-select v-model="form.petId" placeholder="请选择宠物" class="full" :disabled="pets.length === 0">
+              <el-option v-for="p in pets" :key="p.id" :label="p.name" :value="p.id">
+                <span>{{ p.name }}</span>
+                <span class="opt-hint">{{ p.species || '未填物种' }} · {{ petAgeText(p.ageMonths) }}</span>
+              </el-option>
+            </el-select>
+            <div v-if="pets.length === 0" class="form-tip">
+              还没有宠物档案，
+              <el-button link type="primary" @click="router.push('/user/pets')">先去添加一只</el-button>
+            </div>
+            <div v-else-if="selectedPet?.feedingTaboo" class="form-tip">喂养禁忌：{{ selectedPet.feedingTaboo }}</div>
+          </el-form-item>
+
+          <div class="time-grid">
+            <el-form-item label="开始时间" prop="serviceStart">
+              <el-date-picker
+                v-model="form.serviceStart"
+                type="datetime"
+                placeholder="选择上门时间"
+                value-format="YYYY-MM-DD HH:mm:ss"
+                :disabled-date="disabledDate"
+                class="full"
+              />
+            </el-form-item>
+            <el-form-item label="结束时间" prop="serviceEnd">
+              <el-date-picker
+                v-model="form.serviceEnd"
+                type="datetime"
+                placeholder="可不填"
+                value-format="YYYY-MM-DD HH:mm:ss"
+                :disabled-date="disabledDate"
+                class="full"
+              />
+            </el-form-item>
           </div>
-        </el-form-item>
 
-        <el-form-item label="开始时间" prop="serviceStart">
-          <el-date-picker
-            v-model="form.serviceStart"
-            type="datetime"
-            placeholder="选择上门时间"
-            value-format="YYYY-MM-DD HH:mm:ss"
-            :disabled-date="disabledDate"
-            class="full"
-          />
-        </el-form-item>
-
-        <el-form-item label="结束时间" prop="serviceEnd">
-          <el-date-picker
-            v-model="form.serviceEnd"
-            type="datetime"
-            placeholder="可不填"
-            value-format="YYYY-MM-DD HH:mm:ss"
-            :disabled-date="disabledDate"
-            class="full"
-          />
-        </el-form-item>
-
-        <el-form-item label="服务地址" prop="serviceAddress">
-          <el-autocomplete
-            v-model="form.serviceAddress"
-            class="full"
-            placeholder="输入地点名称，例如：明珠中学"
-            maxlength="255"
-            show-word-limit
-            :fetch-suggestions="searchAddressSuggestions"
-            :trigger-on-focus="false"
-            :debounce="300"
-            value-key="value"
-            @select="selectAddress"
-          >
-            <template #default="{ item }">
-              <div class="address-option">
-                <div class="address-option-main">
-                  <strong>{{ item.name }}</strong>
-                  <el-tag v-if="item.distanceText" size="small" type="info" effect="plain">
-                    {{ item.distanceText }}
-                  </el-tag>
+          <el-form-item label="服务地址" prop="serviceAddress">
+            <div v-loading="loadingAddresses" class="address-picker">
+              <div v-if="selectedAddress" class="selected-address">
+                <div class="address-icon">📍</div>
+                <div class="selected-address-main">
+                  <div class="address-title">
+                    <el-tag effect="plain">{{ selectedAddress.label }}</el-tag>
+                    <el-tag v-if="selectedAddress.defaultAddress" type="success" effect="plain">默认地址</el-tag>
+                  </div>
+                  <strong>{{ fullAddress(selectedAddress) }}</strong>
+                  <span>本次预约将直接使用此地址，无需重复填写。</span>
                 </div>
-                <span>{{ item.addressText || '暂无详细地址' }}</span>
+                <div class="selected-address-actions">
+                  <el-button type="primary" plain @click="openAddressBook">更换地址</el-button>
+                  <el-button @click="openAddressEditor(selectedAddress, true)">修改</el-button>
+                </div>
               </div>
-            </template>
-          </el-autocomplete>
-          <div class="form-tip">
-            输入第一个字即搜索当前坐标 1 公里内的地点；选择候选项会自动更新地址坐标和地图标记。
-          </div>
-          <div v-if="addressSearchError" class="form-tip search-error">{{ addressSearchError }}</div>
-        </el-form-item>
+              <div v-else class="first-address">
+                <div>
+                  <strong>第一次预约，请先保存一个常用地址</strong>
+                  <p>首次保存后自动设为默认地址，下次购买服务会直接使用。</p>
+                </div>
+                <el-button type="primary" @click="openAddressEditor(null, true)">填写第一个地址</el-button>
+              </div>
+            </div>
+          </el-form-item>
 
-        <el-form-item label="地址坐标" prop="addressLng">
-          <div class="geo-row">
-            <el-input-number v-model="form.addressLng" :precision="7" :step="0.001" :min="-180" :max="180" :controls="false" placeholder="经度" />
-            <el-input-number v-model="form.addressLat" :precision="7" :step="0.001" :min="-90" :max="90" :controls="false" placeholder="纬度" />
-            <el-button :loading="locating" @click="locateMe">用我的位置</el-button>
-          </div>
-          <div class="form-tip">
-            坐标用于接单大厅的附近检索与接单员到达打卡的距离校验，务必标准。
-          </div>
-        </el-form-item>
+          <el-form-item label="备注" prop="remark">
+            <el-input
+              v-model="form.remark"
+              type="textarea"
+              :rows="3"
+              maxlength="500"
+              show-word-limit
+              placeholder="门禁方式、宠物用品位置、特殊注意事项等"
+            />
+          </el-form-item>
+        </el-form>
+      </el-card>
 
-        <el-form-item v-if="showMap" label="地图选点">
-          <div class="map-wrap">
-            <AmapView :center="mapCenter" :zoom="14" height="320px" @loaded="onMapLoaded" @error="onMapError" />
-            <div class="map-hint">点击地图或拖动标记即可设置坐标</div>
+      <el-card class="section-card summary-card">
+        <div class="section-head">
+          <div>
+            <h3 class="section-title">确认费用</h3>
+            <p>提交后订单进入待支付状态，支付成功才会进入接单大厅。</p>
           </div>
-        </el-form-item>
-        <el-form-item v-else label="地图选点">
-          <el-alert type="info" show-icon :closable="false" :title="mapBroken ? '地图加载失败' : '地图未启用'">
-            <template #default>
-              <template v-if="mapBroken">
-                高德地图加载失败，通常是 key 无效、域名未加白名单或配额用尽。
+          <span class="step-badge">第 3 步</span>
+        </div>
+        <div v-if="price" class="summary">
+          <div class="sum-row">
+            <span>{{ price.categoryName }}</span>
+            <span class="sum-val">¥{{ money(price.amount) }}</span>
+          </div>
+          <div class="sum-row">
+            <span>上门时间</span>
+            <span class="sum-val">
+              {{ form.serviceStart || '未选择' }}
+              <el-tag v-if="price.holiday" size="small" type="warning" effect="light">周末溢价</el-tag>
+            </span>
+          </div>
+          <div class="sum-row">
+            <span>服务地址</span>
+            <span class="sum-val address-value">{{ selectedAddress ? fullAddress(selectedAddress) : '未选择' }}</span>
+          </div>
+          <div class="sum-row total">
+            <span>应付总额</span>
+            <span class="sum-val">¥{{ money(price.amount) }}</span>
+          </div>
+          <p class="sum-note">支付后资金进入平台担保，验收通过才结算给接单员；待支付或待接单阶段取消会原路退款。</p>
+        </div>
+        <el-empty v-else :image-size="60" description="选择上门时间后显示价格" />
+
+        <el-button type="primary" size="large" class="submit-btn" :loading="submitting" @click="onSubmit">
+          立即下单
+        </el-button>
+      </el-card>
+    </template>
+
+    <el-dialog v-model="addressBookVisible" title="服务地址簿" width="720px" top="5vh">
+      <template v-if="!addressEditorVisible">
+        <div class="address-book-head">
+          <p>选择本次服务地址，也可以设置以后自动使用的默认地址。</p>
+          <el-button type="primary" @click="openAddressEditor()">新增地址</el-button>
+        </div>
+        <el-empty v-if="!loadingAddresses && addresses.length === 0" description="还没有保存地址">
+          <el-button type="primary" @click="openAddressEditor()">添加第一个地址</el-button>
+        </el-empty>
+        <div v-else v-loading="loadingAddresses" class="address-list">
+          <article
+            v-for="address in addresses"
+            :key="address.id"
+            class="address-card"
+            :class="{ active: address.id === selectedAddressId }"
+          >
+            <div class="address-main">
+              <div class="address-title">
+                <el-tag effect="plain">{{ address.label }}</el-tag>
+                <el-tag v-if="address.defaultAddress" type="success">默认地址</el-tag>
+                <el-tag v-if="address.id === selectedAddressId" type="primary" effect="plain">本次使用</el-tag>
+              </div>
+              <p>{{ fullAddress(address) }}</p>
+            </div>
+            <div class="address-actions">
+              <el-button type="primary" size="small" @click="useAddress(address)">使用此地址</el-button>
+              <el-button link type="primary" @click="openAddressEditor(address)">编辑</el-button>
+              <el-button v-if="!address.defaultAddress" link type="success" @click="makeDefaultAddress(address)">
+                设为默认
+              </el-button>
+              <el-button link type="danger" @click="removeAddress(address)">删除</el-button>
+            </div>
+          </article>
+        </div>
+      </template>
+
+      <template v-else>
+        <div class="editor-head">
+          <el-button v-if="addresses.length" link type="primary" @click="closeAddressEditor">← 返回地址簿</el-button>
+          <strong>{{ addressForm.id ? '修改地址' : '新增地址' }}</strong>
+        </div>
+        <el-form ref="addressFormRef" :model="addressForm" :rules="addressRules" label-width="86px">
+          <el-form-item label="地址标签" prop="label">
+            <el-radio-group v-model="addressForm.label">
+              <el-radio-button v-for="label in ADDRESS_LABELS" :key="label" :value="label">{{ label }}</el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="所在地区" required>
+            <div class="region-row">
+              <el-select
+                v-model="addressForm.provinceAdcode"
+                placeholder="选择省份"
+                :loading="loadingProvinces"
+                @change="onProvinceChange"
+              >
+                <el-option v-for="item in provinces" :key="item.adcode" :label="item.name" :value="item.adcode" />
+              </el-select>
+              <el-select
+                v-model="addressForm.cityAdcode"
+                placeholder="选择城市"
+                :disabled="!addressForm.provinceAdcode"
+                :loading="loadingCities"
+                @change="onCityChange"
+              >
+                <el-option v-for="item in cities" :key="item.adcode" :label="item.name" :value="item.adcode" />
+              </el-select>
+              <el-select
+                v-model="addressForm.districtAdcode"
+                placeholder="选择地区"
+                :disabled="!addressForm.cityAdcode"
+                :loading="loadingDistricts"
+                @change="onDistrictChange"
+              >
+                <el-option v-for="item in districts" :key="item.adcode" :label="item.name" :value="item.adcode" />
+              </el-select>
+            </div>
+          </el-form-item>
+          <el-form-item label="详细位置" prop="detailAddress">
+            <el-autocomplete
+              v-model="addressForm.detailAddress"
+              class="full"
+              placeholder="输入小区、学校、商场或门牌地址"
+              :disabled="!addressForm.districtAdcode"
+              :fetch-suggestions="searchAddressSuggestions"
+              :trigger-on-focus="false"
+              :debounce="300"
+              value-key="value"
+              clearable
+              @input="onDetailAddressInput"
+              @select="selectAddressSuggestion"
+            >
+              <template #default="{ item }">
+                <div class="location-option">
+                  <strong>{{ item.name }}</strong>
+                  <span>{{ item.detail || '暂无详细地址' }}</span>
+                </div>
               </template>
-              <template v-else>
-                未配置高德地图 key（<code>.env.development</code> 里的 <code>VITE_AMAP_KEY</code>）。
-              </template>
-              请直接在上方手填经纬度，或点「用我的位置」。填好坐标后下单流程完全不受影响。
-            </template>
-          </el-alert>
-        </el-form-item>
-
-        <el-form-item label="备注" prop="remark">
-          <el-input v-model="form.remark" type="textarea" :rows="3" maxlength="500" show-word-limit placeholder="门禁密码、猫砂位置、特殊注意事项等" />
-        </el-form-item>
-      </el-form>
-    </el-card>
-
-    <el-card class="section-card summary-card">
-      <h3 class="section-title">3. 费用确认</h3>
-      <div v-if="price" class="summary">
-        <div class="sum-row">
-          <span>{{ price.categoryName }}</span>
-          <span class="sum-val">¥{{ money(price.amount) }}</span>
-        </div>
-        <div class="sum-row">
-          <span>上门时间</span>
-          <span class="sum-val">
-            {{ form.serviceStart || '未选择' }}
-            <el-tag v-if="price.holiday" size="small" type="warning" effect="light">周末溢价</el-tag>
-          </span>
-        </div>
-        <div class="sum-row total">
-          <span>应付总额</span>
-          <span class="sum-val">¥{{ money(price.amount) }}</span>
-        </div>
-        <p class="sum-note">支付后资金进入平台担保，验收通过才结算给接单员。取消订单全额退回余额。</p>
-      </div>
-      <el-empty v-else :image-size="60" description="选好服务与上门时间后显示价格" />
-
-      <el-button type="primary" size="large" class="submit-btn" :loading="submitting" @click="onSubmit">
-        立即下单
-      </el-button>
-    </el-card>
+            </el-autocomplete>
+            <div class="form-tip">请从候选地点中选择，系统会保存准确位置，但不会向用户显示坐标。</div>
+            <div v-if="addressSearchError" class="form-tip search-error">{{ addressSearchError }}</div>
+          </el-form-item>
+          <el-form-item>
+            <el-checkbox v-model="addressForm.defaultAddress" :disabled="Boolean(addressForm.id) && addressForm.defaultAddress">
+              设为默认服务地址
+            </el-checkbox>
+          </el-form-item>
+        </el-form>
+      </template>
+      <template #footer>
+        <template v-if="addressEditorVisible">
+          <el-button @click="closeAddressEditor">取消</el-button>
+          <el-button type="primary" :loading="savingAddress" @click="saveAddress">保存并使用</el-button>
+        </template>
+        <el-button v-else @click="addressBookVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog v-model="rechargeVisible" title="钱包充值" width="420px">
       <el-form label-width="80px">
@@ -215,26 +329,25 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import AmapView from '@/components/AmapView.vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { listCategories, previewPrice } from '@/api/serviceCategory'
 import { listMyPets } from '@/api/pet'
 import { getMyWallet, recharge } from '@/api/wallet'
 import { createOrder } from '@/api/order'
+import {
+  createUserAddress,
+  deleteUserAddress,
+  listUserAddresses,
+  setDefaultUserAddress,
+  updateUserAddress
+} from '@/api/userAddress'
 import { money, petAgeText, formatDateTime } from '@/utils/format'
-import { getCurrentPosition, searchNearbyPois } from '@/utils/amap'
+import { searchAdministrativeChildren, searchPois } from '@/utils/amap'
 
 const router = useRouter()
 
 const CATEGORY_EMOJI = { FEEDING: '🍚', GROOMING: '🛁', WALKING: '🦮', COMPANION: '🧸' }
-// 与种子数据里的接单员坐标一致：降级成手填模式时，用这个默认值仍能在大厅检索到演示订单
-const DEFAULT_CENTER = [121.4737, 31.2304]
-
-const hasAmapKey = computed(() => !!import.meta.env.VITE_AMAP_KEY)
-// key 配了但无效 / 超配额 / 断网时 AmapView 会 emit error，此时也要退回手填坐标模式，
-// 否则页面上只剩一个 320px 的灰色空盒子，除了控制台没有任何提示。
-const mapBroken = ref(false)
-const showMap = computed(() => hasAmapKey.value && !mapBroken.value)
+const ADDRESS_LABELS = ['家', '学校', '公司', '其他']
 
 const categories = ref([])
 const pets = ref([])
@@ -242,11 +355,27 @@ const wallet = reactive({ balance: 0, frozen: 0, totalIncome: 0 })
 const price = ref(null)
 const loadingCategories = ref(false)
 const submitting = ref(false)
-const locating = ref(false)
 const rechargeVisible = ref(false)
 const recharging = ref(false)
 const rechargeAmount = ref(1000)
+
+const addresses = ref([])
+const loadingAddresses = ref(false)
+const selectedAddressId = ref(null)
+const addressBookVisible = ref(false)
+const addressEditorVisible = ref(false)
+const savingAddress = ref(false)
+const addressFormRef = ref(null)
 const addressSearchError = ref('')
+const provinces = ref([])
+const cities = ref([])
+const districts = ref([])
+const loadingProvinces = ref(false)
+const loadingCities = ref(false)
+const loadingDistricts = ref(false)
+const addressForm = reactive(emptyAddressForm())
+let selectedDetailValue = ''
+let addressSearchSequence = 0
 
 const formRef = ref(null)
 const form = reactive({
@@ -255,35 +384,46 @@ const form = reactive({
   serviceStart: defaultStart(),
   serviceEnd: null,
   serviceAddress: '',
-  addressLat: DEFAULT_CENTER[1],
-  addressLng: DEFAULT_CENTER[0],
+  addressLat: null,
+  addressLng: null,
   remark: ''
 })
 
 const rules = {
   petId: [{ required: true, message: '请选择服务宠物', trigger: 'change' }],
   serviceStart: [{ required: true, message: '请选择上门时间', trigger: 'change' }],
-  serviceAddress: [{ required: true, message: '请填写服务地址', trigger: 'blur' }],
-  addressLng: [{ required: true, message: '请设置服务地址坐标', trigger: 'change' }]
+  serviceAddress: [{ required: true, message: '请选择或新增一个服务地址', trigger: 'change' }]
 }
 
-const mapCenter = computed(() => [form.addressLng || DEFAULT_CENTER[0], form.addressLat || DEFAULT_CENTER[1]])
-const selectedPet = computed(() => pets.value.find((p) => p.id === form.petId))
+const addressRules = {
+  label: [{ required: true, message: '请选择地址标签', trigger: 'change' }],
+  detailAddress: [
+    { required: true, message: '请填写详细位置', trigger: 'blur' },
+    {
+      validator: (_rule, value, callback) => {
+        if (value !== selectedDetailValue || !Number.isFinite(Number(addressForm.lng)) || !Number.isFinite(Number(addressForm.lat))) {
+          callback(new Error('请从地点候选中选择准确位置'))
+          return
+        }
+        callback()
+      },
+      trigger: 'blur'
+    }
+  ]
+}
+
+const selectedCategory = computed(() => categories.value.find((item) => item.id === form.categoryId))
+const selectedPet = computed(() => pets.value.find((item) => item.id === form.petId))
+const selectedAddress = computed(() => addresses.value.find((item) => item.id === selectedAddressId.value) || null)
 const shortOfBalance = computed(
   () => !!price.value && Number(wallet.balance ?? 0) < Number(price.value.amount ?? 0)
 )
 
-// 地图实例与标记一律用普通变量而不是 ref：AMap 对象内部有大量循环引用与私有状态，
-// 被 Vue 的 reactive 代理包过之后会直接崩在 setter 上。
-let mapInstance = null
-let markerInstance = null
-let addressSearchSequence = 0
-
 function defaultStart() {
-  const d = new Date()
-  d.setDate(d.getDate() + 1)
-  d.setHours(10, 0, 0, 0)
-  return formatDateTime(d)
+  const date = new Date()
+  date.setDate(date.getDate() + 1)
+  date.setHours(10, 0, 0, 0)
+  return formatDateTime(date)
 }
 
 function disabledDate(date) {
@@ -295,9 +435,11 @@ function disabledDate(date) {
 function pickCategory(id) {
   form.categoryId = id
   refreshPrice()
+  requestAnimationFrame(() => {
+    document.querySelector('.booking-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
 }
 
-// 周末溢价与日期直接相关，改时间必须重算，否则用户会拿着工作日的价格去确认周末的订单
 watch(() => form.serviceStart, refreshPrice)
 
 async function refreshPrice() {
@@ -308,97 +450,288 @@ async function refreshPrice() {
   try {
     price.value = await previewPrice(form.categoryId, form.serviceStart)
   } catch {
-    // 失败原因拦截器已弹过；这里把旧价格清掉，避免拿一个过期的金额去下单
     price.value = null
   }
 }
 
-function onMapLoaded({ AMap, map }) {
-  mapInstance = map
-  markerInstance = new AMap.Marker({
-    position: [form.addressLng, form.addressLat],
-    draggable: true
-  })
-  map.add(markerInstance)
-  markerInstance.on('dragend', (e) => {
-    const [lng, lat] = e.target.getPosition()
-    applyGeo(lng, lat)
-  })
-  map.on('click', (e) => {
-    markerInstance.setPosition([e.lnglat.getLng(), e.lnglat.getLat()])
-    applyGeo(e.lnglat.getLng(), e.lnglat.getLat())
-  })
+function fullAddress(address) {
+  return `${address.province || ''}${address.city || ''}${address.district || ''}${address.detailAddress || ''}`
 }
 
-function onMapError() {
-  // AmapView 内部已经 console.error，这里切到手填坐标模式，别留一个空白灰盒子
-  mapBroken.value = true
-  mapInstance = null
-  markerInstance = null
-}
-
-function applyGeo(lng, lat) {
-  form.addressLng = Number(lng.toFixed(7))
-  form.addressLat = Number(lat.toFixed(7))
-}
-
-function poiDistanceText(distance) {
-  if (!Number.isFinite(distance) || distance < 0) return ''
-  return distance < 1000 ? `${Math.round(distance)} m` : `${(distance / 1000).toFixed(1)} km`
-}
-
-async function searchAddressSuggestions(keyword, callback) {
-  const query = keyword.trim()
-  const sequence = ++addressSearchSequence
-  addressSearchError.value = ''
-  if (!query) {
-    callback([])
-    return
-  }
-
-  try {
-    const pois = await searchNearbyPois(query, [form.addressLng, form.addressLat], 1000)
-    // 用户已经继续输入时，丢弃较早请求的结果，避免旧关键词覆盖新下拉栏
-    if (sequence !== addressSearchSequence) return
-    callback(
-      pois.map((poi) => {
-        const addressText = `${poi.district}${poi.address}`
-        return {
-          ...poi,
-          addressText,
-          distanceText: poiDistanceText(poi.distance),
-          value: addressText ? `${poi.name} · ${addressText}` : poi.name
-        }
-      })
-    )
-  } catch {
-    if (sequence !== addressSearchSequence) return
-    addressSearchError.value = '附近地址检索失败，请检查高德 Key、域名白名单或网络后重试。'
-    callback([])
-  }
-}
-
-function selectAddress(item) {
-  form.serviceAddress = item.value
-  applyGeo(item.lng, item.lat)
-  markerInstance?.setPosition([item.lng, item.lat])
-  mapInstance?.setZoomAndCenter(17, [item.lng, item.lat])
+function applyAddress(address) {
+  selectedAddressId.value = address?.id ?? null
+  form.serviceAddress = address ? fullAddress(address) : ''
+  form.addressLng = address ? Number(address.lng) : null
+  form.addressLat = address ? Number(address.lat) : null
   formRef.value?.clearValidate('serviceAddress')
 }
 
-async function locateMe() {
-  locating.value = true
+async function loadAddresses(preserveSelection = true) {
+  loadingAddresses.value = true
+  const previousId = preserveSelection ? selectedAddressId.value : null
   try {
-    const { lng, lat } = await getCurrentPosition()
-    applyGeo(lng, lat)
-    markerInstance?.setPosition([lng, lat])
-    mapInstance?.setCenter([lng, lat])
-    ElMessage.success('已填入当前定位')
+    addresses.value = await listUserAddresses()
+    const selected = addresses.value.find((item) => item.id === previousId)
+      || addresses.value.find((item) => item.defaultAddress)
+      || addresses.value[0]
+      || null
+    applyAddress(selected)
   } catch {
-    // 浏览器定位只在 HTTPS 或 localhost 下可用，局域网 IP + HTTP 会被静默拒绝
-    ElMessage.warning('浏览器定位不可用，请手动填写经纬度或在地图上选点')
+    addresses.value = []
+    applyAddress(null)
   } finally {
-    locating.value = false
+    loadingAddresses.value = false
+  }
+}
+
+async function openAddressBook() {
+  addressBookVisible.value = true
+  addressEditorVisible.value = false
+  await loadAddresses()
+}
+
+function emptyAddressForm() {
+  return {
+    id: null,
+    label: '家',
+    provinceAdcode: '',
+    province: '',
+    cityAdcode: '',
+    city: '',
+    districtAdcode: '',
+    district: '',
+    detailAddress: '',
+    lng: null,
+    lat: null,
+    defaultAddress: false
+  }
+}
+
+async function openAddressEditor(address = null, direct = false) {
+  if (direct) addressBookVisible.value = true
+  Object.assign(addressForm, emptyAddressForm())
+  cities.value = []
+  districts.value = []
+  selectedDetailValue = ''
+  addressSearchError.value = ''
+  addressFormRef.value?.clearValidate()
+  addressEditorVisible.value = true
+  await loadProvinces()
+
+  if (!address) {
+    addressForm.defaultAddress = addresses.value.length === 0
+    return
+  }
+  Object.assign(addressForm, {
+    id: address.id,
+    label: address.label,
+    province: address.province,
+    city: address.city,
+    district: address.district,
+    detailAddress: address.detailAddress,
+    lng: Number(address.lng),
+    lat: Number(address.lat),
+    defaultAddress: address.defaultAddress
+  })
+  selectedDetailValue = address.detailAddress
+
+  const province = findRegion(provinces.value, address.province)
+  if (!province) return
+  addressForm.provinceAdcode = province.adcode
+  await loadCities(province.adcode)
+  const city = findRegion(cities.value, address.city)
+  if (!city) return
+  addressForm.cityAdcode = city.adcode
+  await loadDistricts(city.adcode)
+  const district = findRegion(districts.value, address.district)
+  if (district) addressForm.districtAdcode = district.adcode
+}
+
+function closeAddressEditor() {
+  if (addresses.value.length) {
+    addressEditorVisible.value = false
+  } else {
+    addressBookVisible.value = false
+  }
+  addressFormRef.value?.clearValidate()
+}
+
+function findRegion(items, name) {
+  return items.find((item) => item.name === name)
+    || items.find((item) => item.name.includes(name) || name.includes(item.name))
+}
+
+async function loadProvinces() {
+  if (provinces.value.length || loadingProvinces.value) return
+  loadingProvinces.value = true
+  try {
+    provinces.value = await searchAdministrativeChildren('中国', 'country')
+  } catch {
+    ElMessage.error('省份列表加载失败，请检查高德地图配置')
+  } finally {
+    loadingProvinces.value = false
+  }
+}
+
+async function loadCities(provinceAdcode) {
+  loadingCities.value = true
+  try {
+    cities.value = await searchAdministrativeChildren(provinceAdcode, 'province')
+  } catch {
+    cities.value = []
+    ElMessage.error('城市列表加载失败')
+  } finally {
+    loadingCities.value = false
+  }
+}
+
+async function loadDistricts(cityAdcode) {
+  loadingDistricts.value = true
+  try {
+    districts.value = await searchAdministrativeChildren(cityAdcode, 'city')
+  } catch {
+    districts.value = []
+    ElMessage.error('地区列表加载失败')
+  } finally {
+    loadingDistricts.value = false
+  }
+}
+
+async function onProvinceChange(adcode) {
+  addressForm.province = provinces.value.find((item) => item.adcode === adcode)?.name || ''
+  addressForm.cityAdcode = ''
+  addressForm.city = ''
+  addressForm.districtAdcode = ''
+  addressForm.district = ''
+  cities.value = []
+  districts.value = []
+  resetDetailAddress()
+  if (adcode) await loadCities(adcode)
+}
+
+async function onCityChange(adcode) {
+  addressForm.city = cities.value.find((item) => item.adcode === adcode)?.name || ''
+  addressForm.districtAdcode = ''
+  addressForm.district = ''
+  districts.value = []
+  resetDetailAddress()
+  if (adcode) await loadDistricts(adcode)
+}
+
+function onDistrictChange(adcode) {
+  addressForm.district = districts.value.find((item) => item.adcode === adcode)?.name || ''
+  resetDetailAddress()
+}
+
+function resetDetailAddress() {
+  addressForm.detailAddress = ''
+  addressForm.lng = null
+  addressForm.lat = null
+  selectedDetailValue = ''
+}
+
+async function searchAddressSuggestions(keyword, callback) {
+  const query = keyword?.trim()
+  const sequence = ++addressSearchSequence
+  addressSearchError.value = ''
+  if (!query || !addressForm.cityAdcode || !addressForm.district) {
+    callback([])
+    return
+  }
+  try {
+    const pois = await searchPois(`${addressForm.district}${query}`, addressForm.cityAdcode)
+    if (sequence !== addressSearchSequence) return
+    callback(pois.map((poi) => ({
+      ...poi,
+      detail: `${poi.district}${poi.address}`,
+      value: `${poi.name}${poi.address ? ` · ${poi.address}` : ''}`
+    })))
+  } catch {
+    if (sequence !== addressSearchSequence) return
+    addressSearchError.value = '详细位置搜索失败，请检查高德地图配置后重试。'
+    callback([])
+  }
+}
+
+function onDetailAddressInput(value) {
+  if (value === selectedDetailValue) return
+  addressForm.lng = null
+  addressForm.lat = null
+}
+
+function selectAddressSuggestion(item) {
+  selectedDetailValue = item.value
+  addressForm.detailAddress = item.value
+  addressForm.lng = item.lng
+  addressForm.lat = item.lat
+  addressFormRef.value?.clearValidate('detailAddress')
+}
+
+async function saveAddress() {
+  if (!addressForm.provinceAdcode || !addressForm.cityAdcode || !addressForm.districtAdcode) {
+    ElMessage.warning('请依次选择省份、城市和地区')
+    return
+  }
+  const ok = await addressFormRef.value.validate().catch(() => false)
+  if (!ok) return
+
+  savingAddress.value = true
+  try {
+    const payload = {
+      label: addressForm.label,
+      province: addressForm.province,
+      city: addressForm.city,
+      district: addressForm.district,
+      detailAddress: addressForm.detailAddress,
+      lng: addressForm.lng,
+      lat: addressForm.lat,
+      defaultAddress: addressForm.defaultAddress
+    }
+    const saved = addressForm.id
+      ? await updateUserAddress(addressForm.id, payload)
+      : await createUserAddress(payload)
+    await loadAddresses(false)
+    const current = addresses.value.find((item) => item.id === saved.id) || saved
+    applyAddress(current)
+    addressEditorVisible.value = false
+    addressBookVisible.value = false
+    ElMessage.success(addressForm.id ? '地址已修改并用于本次预约' : '地址已保存，下次会自动使用默认地址')
+  } catch {
+    // 请求拦截器已提示
+  } finally {
+    savingAddress.value = false
+  }
+}
+
+function useAddress(address) {
+  applyAddress(address)
+  addressBookVisible.value = false
+}
+
+async function makeDefaultAddress(address) {
+  try {
+    await setDefaultUserAddress(address.id)
+    await loadAddresses()
+    ElMessage.success(`已将“${address.label}”设为默认地址`)
+  } catch {
+    // 请求拦截器已提示
+  }
+}
+
+async function removeAddress(address) {
+  const confirmed = await ElMessageBox.confirm(`确定删除“${address.label}”地址吗？`, '删除地址', {
+    type: 'warning',
+    confirmButtonText: '删除',
+    cancelButtonText: '取消'
+  }).catch(() => false)
+  if (!confirmed) return
+  try {
+    await deleteUserAddress(address.id)
+    if (selectedAddressId.value === address.id) selectedAddressId.value = null
+    await loadAddresses()
+    ElMessage.success('地址已删除')
+  } catch {
+    // 请求拦截器已提示
   }
 }
 
@@ -414,17 +747,21 @@ async function onRecharge() {
     rechargeVisible.value = false
     ElMessage.success(`充值成功，当前余额 ¥${money(wallet.balance)}`)
   } catch {
-    // 拦截器已提示
+    // 请求拦截器已提示
   } finally {
     recharging.value = false
   }
 }
 
 async function onSubmit() {
-  const ok = await formRef.value.validate().catch(() => false)
-  if (!ok) return
   if (!form.categoryId) {
     ElMessage.warning('请先选择一项服务')
+    return
+  }
+  const ok = await formRef.value?.validate().catch(() => false)
+  if (!ok) return
+  if (!selectedAddress.value || !Number.isFinite(form.addressLng) || !Number.isFinite(form.addressLat)) {
+    ElMessage.warning('请选择一个有效的服务地址')
     return
   }
   if (!price.value) {
@@ -447,7 +784,7 @@ async function onSubmit() {
     ElMessage.success(`下单成功，订单号 ${order.orderNo}`)
     router.push('/user/orders')
   } catch {
-    // 拦截器已提示
+    // 请求拦截器已提示
   } finally {
     submitting.value = false
   }
@@ -456,46 +793,64 @@ async function onSubmit() {
 onMounted(async () => {
   loadingCategories.value = true
   try {
-    // 三个请求互不依赖，并发拉；钱包失败不该挡住下单页渲染，所以单独兜
     const [cats, myPets, myWallet] = await Promise.all([
       listCategories(),
       listMyPets(),
-      getMyWallet().catch(() => null)
+      getMyWallet().catch(() => null),
+      loadAddresses()
     ])
     categories.value = cats ?? []
     pets.value = myPets ?? []
     if (myWallet) Object.assign(wallet, myWallet)
     if (pets.value.length === 1) form.petId = pets.value[0].id
   } catch {
-    // 拦截器已提示
+    // 请求拦截器已提示
   } finally {
     loadingCategories.value = false
   }
-  refreshPrice()
 })
 </script>
 
 <style scoped>
-.head-card {
+.head-card,
+.balance-alert,
+.section-card {
   margin-bottom: 16px;
 }
 
-.head {
+.head,
+.section-head,
+.address-book-head,
+.editor-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+}
+
+.head {
   flex-wrap: wrap;
 }
 
+.title,
+.section-title {
+  margin: 0;
+}
+
 .title {
-  margin: 0 0 6px;
+  margin-bottom: 6px;
   font-size: 20px;
 }
 
-.subtitle {
-  margin: 0;
-  font-size: 13px;
+.subtitle,
+.section-head p,
+.address-book-head p,
+.first-address p,
+.selected-address span,
+.dialog-note {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
   color: var(--pp-muted);
 }
 
@@ -527,17 +882,20 @@ onMounted(async () => {
   font-weight: 600;
 }
 
-.balance-alert {
-  margin-bottom: 16px;
-}
-
-.section-card {
-  margin-bottom: 16px;
-}
-
 .section-title {
-  margin: 0 0 16px;
-  font-size: 16px;
+  font-size: 17px;
+}
+
+.section-head {
+  margin-bottom: 18px;
+}
+
+.step-badge {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--pp-tint);
+  color: var(--pp-primary);
+  font-size: 12px;
 }
 
 .cat-grid {
@@ -547,11 +905,12 @@ onMounted(async () => {
 }
 
 .cat-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 6px;
-  padding: 16px;
+  padding: 18px;
   border: 1px solid var(--pp-tint-2);
   border-radius: var(--pp-radius);
   background: #fff;
@@ -570,10 +929,19 @@ onMounted(async () => {
 .cat-card.active {
   border-color: var(--pp-primary);
   background: var(--pp-tint);
+  box-shadow: 0 0 0 2px rgb(79 130 95 / 10%);
+}
+
+.cat-check {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  color: var(--pp-primary);
+  font-weight: 700;
 }
 
 .cat-emoji {
-  font-size: 26px;
+  font-size: 28px;
 }
 
 .cat-name {
@@ -592,9 +960,15 @@ onMounted(async () => {
   font-weight: 400;
 }
 
-.cat-hint {
+.cat-hint,
+.form-tip {
   font-size: 12px;
+  line-height: 1.6;
   color: var(--pp-muted);
+}
+
+.form-tip.search-error {
+  color: var(--el-color-danger);
 }
 
 .full {
@@ -607,58 +981,65 @@ onMounted(async () => {
   font-size: 12px;
 }
 
-.form-tip {
-  font-size: 12px;
-  color: var(--pp-muted);
-  line-height: 1.6;
-}
-
-.form-tip.search-error {
-  color: var(--el-color-danger);
-}
-
-.address-option {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 5px 0;
-  line-height: 1.4;
-}
-
-.address-option-main {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.time-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
-.address-option-main strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
+.address-picker {
+  width: 100%;
+  min-height: 84px;
 }
 
-.address-option > span {
-  overflow: hidden;
-  color: var(--pp-muted);
-  font-size: 12px;
-  text-overflow: ellipsis;
-}
-
-.geo-row {
+.selected-address,
+.first-address {
   display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--pp-tint-2);
+  border-radius: var(--pp-radius);
+  background: var(--pp-tint);
+}
+
+.address-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #fff;
+  font-size: 20px;
+}
+
+.selected-address-main {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.selected-address-main strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selected-address-actions,
+.address-actions,
+.address-title {
+  display: flex;
+  align-items: center;
   gap: 8px;
-  width: 100%;
-  flex-wrap: wrap;
 }
 
-.map-wrap {
-  width: 100%;
-}
-
-.map-hint {
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--pp-muted);
+.first-address {
+  justify-content: space-between;
+  border-style: dashed;
+  background: #fff;
 }
 
 .summary {
@@ -670,6 +1051,7 @@ onMounted(async () => {
 .sum-row {
   display: flex;
   justify-content: space-between;
+  gap: 20px;
   align-items: center;
   font-size: 14px;
   color: var(--pp-muted);
@@ -678,6 +1060,11 @@ onMounted(async () => {
 .sum-val {
   color: var(--pp-ink);
   font-weight: 600;
+}
+
+.address-value {
+  max-width: 70%;
+  text-align: right;
 }
 
 .sum-row.total {
@@ -703,15 +1090,81 @@ onMounted(async () => {
   margin-top: 16px;
 }
 
-.dialog-note {
-  margin: 0;
-  font-size: 12px;
-  color: var(--pp-muted);
+.address-book-head {
+  margin-bottom: 14px;
 }
 
-code {
+.address-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.address-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid var(--pp-tint-2);
+  border-radius: var(--pp-radius);
+}
+
+.address-card.active {
+  border-color: var(--pp-primary);
   background: var(--pp-tint);
-  padding: 1px 4px;
-  border-radius: 4px;
+}
+
+.address-main {
+  min-width: 0;
+}
+
+.address-main p {
+  margin: 8px 0 0;
+  line-height: 1.6;
+}
+
+.editor-head {
+  justify-content: flex-start;
+  margin-bottom: 18px;
+}
+
+.region-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+.location-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0;
+  line-height: 1.4;
+}
+
+.location-option span {
+  color: var(--pp-muted);
+  font-size: 12px;
+}
+
+@media (max-width: 760px) {
+  .time-grid,
+  .region-row {
+    grid-template-columns: 1fr;
+  }
+
+  .selected-address,
+  .first-address,
+  .address-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .selected-address-actions,
+  .address-actions {
+    flex-wrap: wrap;
+  }
 }
 </style>
