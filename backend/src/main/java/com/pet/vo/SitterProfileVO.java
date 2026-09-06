@@ -42,6 +42,9 @@ public class SitterProfileVO {
     /** 信誉等级 1-5 */
     private Integer creditLevel;
 
+    /** 信誉分 0-100 */
+    private Integer creditScore;
+
     /** 0=暂停接单 1=可接单 */
     private Integer available;
 

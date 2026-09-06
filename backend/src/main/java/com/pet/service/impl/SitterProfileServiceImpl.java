@@ -89,6 +89,23 @@ public class SitterProfileServiceImpl extends ServiceImpl<SitterProfileMapper, S
         }
     }
 
+    @Override
+    public int getCreditScore(Long sitterId) {
+        SitterProfile profile = requireProfile(sitterId);
+        return profile.getCreditScore() == null ? 100 : profile.getCreditScore();
+    }
+
+    @Override
+    public int deductCreditScore(Long sitterId, int points) {
+        if (points <= 0) {
+            return getCreditScore(sitterId);
+        }
+        if (baseMapper.deductCreditScore(sitterId, points) == 0) {
+            throw new BusinessException(ResultCode.SITTER_PROFILE_NOT_FOUND);
+        }
+        return getCreditScore(sitterId);
+    }
+
     /**
      * 抢单入口绝不能顺手建档：档案缺失意味着注册流程或数据被动过，
      * 静默补一条待审档案只会把问题藏起来，让人以为「注册完就能抢单」。
@@ -123,6 +140,7 @@ public class SitterProfileServiceImpl extends ServiceImpl<SitterProfileMapper, S
         profile.setExperienceYears(0);
         profile.setAuditStatus(AuditStatus.PENDING.getCode());
         profile.setCreditLevel(3);
+        profile.setCreditScore(100);
         profile.setAvailable(AVAILABLE);
         return profile;
     }
@@ -143,6 +161,7 @@ public class SitterProfileServiceImpl extends ServiceImpl<SitterProfileMapper, S
         vo.setAuditStatusText(AuditStatus.descOf(p.getAuditStatus()));
         vo.setAuditRemark(p.getAuditRemark());
         vo.setCreditLevel(p.getCreditLevel());
+        vo.setCreditScore(p.getCreditScore() == null ? 100 : p.getCreditScore());
         vo.setAvailable(p.getAvailable());
         vo.setCurrentLng(p.getCurrentLng());
         vo.setCurrentLat(p.getCurrentLat());

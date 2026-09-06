@@ -9,6 +9,7 @@ import com.pet.dto.OrderQuery;
 import com.pet.dto.SitterAddressSaveDTO;
 import com.pet.dto.SitterProfileSaveDTO;
 import com.pet.dto.SitterLocationDTO;
+import com.pet.dto.SitterOrderCancelDTO;
 import com.pet.dto.TrackSaveDTO;
 import com.pet.security.RequireRole;
 import com.pet.service.FulfillmentService;
@@ -20,6 +21,7 @@ import com.pet.vo.OrderEvidenceVO;
 import com.pet.vo.OrderListVO;
 import com.pet.vo.SitterAddressVO;
 import com.pet.vo.SitterProfileVO;
+import com.pet.vo.SitterCancelResultVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -121,6 +123,13 @@ public class SitterController {
     @GetMapping("/order/page")
     public Result<PageResult<OrderListVO>> myOrders(@Valid OrderQuery query) {
         return Result.success(orderService.pageTaken(query));
+    }
+
+    @Operation(summary = "接单员取消订单", description = "仅已接单且未打卡的订单可取消，原因必填；接单满 30 分钟后取消扣 5 信誉分，担保款全额退回雇主")
+    @PostMapping("/order/{orderId}/cancel")
+    public Result<SitterCancelResultVO> cancelOrder(@PathVariable Long orderId,
+                                                     @Valid @RequestBody SitterOrderCancelDTO dto) {
+        return Result.success(orderService.cancelBySitter(orderId, dto));
     }
 
     @Operation(summary = "到达定位打卡", description = "已接单 → 服务中；坐标距服务地址超过 pet-platform.geo.check-in-radius 返回 2004")

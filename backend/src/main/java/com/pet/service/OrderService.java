@@ -6,10 +6,12 @@ import com.pet.dto.HallQuery;
 import com.pet.dto.OrderCancelDTO;
 import com.pet.dto.OrderCreateDTO;
 import com.pet.dto.OrderQuery;
+import com.pet.dto.SitterOrderCancelDTO;
 import com.pet.entity.Order;
 import com.pet.vo.HallOrderVO;
 import com.pet.vo.OrderDetailVO;
 import com.pet.vo.OrderListVO;
+import com.pet.vo.SitterCancelResultVO;
 
 public interface OrderService extends IService<Order> {
 
@@ -62,6 +64,12 @@ public interface OrderService extends IService<Order> {
 
     /** 当前登录接单员抢到的订单分页，按 id 倒序；status 为空表示全部。 */
     PageResult<OrderListVO> pageTaken(OrderQuery query);
+
+    /**
+     * 接单员取消尚未开始的已接订单。原因必填，已接单满 30 分钟后取消扣 5 分；
+     * 订单担保款全额退回下单用户。
+     */
+    SitterCancelResultVO cancelBySitter(Long orderId, SitterOrderCancelDTO dto);
 
     /**
      * 验收：待验收 → 已完成，并在同一事务里结算担保资金（接单员到手 + 平台抽成入账）。

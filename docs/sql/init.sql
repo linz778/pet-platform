@@ -92,6 +92,7 @@ CREATE TABLE t_sitter_profile (
     audit_status     TINYINT     NOT NULL DEFAULT 0 COMMENT '0=待审 1=通过 2=驳回',
     audit_remark     VARCHAR(255)         DEFAULT NULL COMMENT '审核备注',
     credit_level     TINYINT     NOT NULL DEFAULT 3 COMMENT '信誉等级 1-5',
+    credit_score     TINYINT     NOT NULL DEFAULT 100 COMMENT '信誉分 0-100',
     current_lat      DECIMAL(10,7)        DEFAULT NULL COMMENT '当前纬度',
     current_lng      DECIMAL(10,7)        DEFAULT NULL COMMENT '当前经度',
     available        TINYINT     NOT NULL DEFAULT 1 COMMENT '是否可接单',
@@ -294,8 +295,8 @@ VALUES (0, 0.00, 0.00, 0.00, NOW(), NOW()),
        (3, 0.00, 0.00, 0.00, NOW(), NOW());
 
 -- 接单员资质（演示，已通过审核）
-INSERT INTO t_sitter_profile (user_id, real_name, experience_years, audit_status, credit_level, current_lat, current_lng, available, create_time, update_time)
-VALUES (3, '演示接单员', 3, 1, 5, 31.2304000, 121.4737000, 1, NOW(), NOW());
+INSERT INTO t_sitter_profile (user_id, real_name, experience_years, audit_status, credit_level, credit_score, current_lat, current_lng, available, create_time, update_time)
+VALUES (3, '演示接单员', 3, 1, 5, 100, 31.2304000, 121.4737000, 1, NOW(), NOW());
 
 -- 演示主人的宠物档案（下单流程开箱可演示）
 INSERT INTO t_pet (user_id, name, species, breed, gender, age_months, weight_kg, personality, feeding_taboo, create_time, update_time) VALUES

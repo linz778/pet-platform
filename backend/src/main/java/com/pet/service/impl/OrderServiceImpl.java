@@ -17,6 +17,7 @@ import com.pet.dto.HallQuery;
 import com.pet.dto.OrderCancelDTO;
 import com.pet.dto.OrderCreateDTO;
 import com.pet.dto.OrderQuery;
+import com.pet.dto.SitterOrderCancelDTO;
 import com.pet.entity.Order;
 import com.pet.entity.Pet;
 import com.pet.entity.ServiceCategory;
@@ -34,6 +35,7 @@ import com.pet.vo.HallOrderVO;
 import com.pet.vo.OrderDetailVO;
 import com.pet.vo.OrderListVO;
 import com.pet.vo.PricePreviewVO;
+import com.pet.vo.SitterCancelResultVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -75,6 +77,10 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
      * 待接单订单超过这个数时 total 会偏小，本期可接受（真实平台该换成 ES 的 geo_distance 查询）。
      */
     private static final int MAX_HALL_CANDIDATES = 500;
+
+    /** 接单满 30 分钟后再取消会扣 5 分，信誉分最低为 0。 */
+    private static final long SITTER_CANCEL_GRACE_MINUTES = 30;
+    private static final int SITTER_CANCEL_CREDIT_PENALTY = 5;
 
     private final PetService petService;
     private final PetMapper petMapper;
@@ -280,6 +286,46 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
                 .orderByDesc(Order::getId));
         List<OrderListVO> records = toListVOs(page.getRecords(), loadNicknames(page.getRecords()), true);
         return new PageResult<>(records, page.getTotal(), page.getCurrent(), page.getSize());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public SitterCancelResultVO cancelBySitter(Long orderId, SitterOrderCancelDTO dto) {
+        Long sitterId = UserContext.userId();
+        Order order = getById(orderId);
+        if (order == null) {
+            throw new BusinessException(ResultCode.ORDER_NOT_FOUND);
+        }
+        if (!sitterId.equals(order.getSitterId())) {
+            throw new BusinessException(ResultCode.ORDER_ACCESS_DENIED);
+        }
+        if (!Integer.valueOf(OrderStatus.TAKEN.getCode()).equals(order.getStatus())) {
+            throw new BusinessException(ResultCode.ORDER_STATUS_ILLEGAL);
+        }
+
+        String reason = StrUtil.trim(dto == null ? null : dto.getReason());
+        if (StrUtil.isBlank(reason)) {
+            throw new BusinessException(ResultCode.VALIDATE_FAILED.getCode(), "请填写取消原因");
+        }
+        boolean deductCredit = order.getTakenTime() != null
+                && !LocalDateTime.now().isBefore(order.getTakenTime().plusMinutes(SITTER_CANCEL_GRACE_MINUTES));
+
+        // sitter_id + status 条件同时保证归属与幂等；只有状态更新成功才能退款和扣分。
+        if (baseMapper.markCancelledBySitter(orderId, sitterId, reason) == 0) {
+            throw new BusinessException(ResultCode.ORDER_STATUS_ILLEGAL);
+        }
+        if (Integer.valueOf(PayStatus.PAID.getCode()).equals(order.getPayStatus())) {
+            if (baseMapper.markRefunded(orderId) == 0) {
+                throw new BusinessException(ResultCode.FAILED.getCode(), "订单退款状态更新失败");
+            }
+            walletService.refundOrder(orderId, order.getUserId(), order.getAmount());
+        }
+
+        int deductedPoints = deductCredit ? SITTER_CANCEL_CREDIT_PENALTY : 0;
+        int creditScore = deductCredit
+                ? sitterProfileService.deductCreditScore(sitterId, deductedPoints)
+                : sitterProfileService.getCreditScore(sitterId);
+        return new SitterCancelResultVO(deductCredit, deductedPoints, creditScore);
     }
 
     /** 订单必须是当前登录用户下的单，否则连「订单不存在」都不必伪装——直接回无权操作。 */

@@ -41,4 +41,10 @@ public interface SitterProfileService extends IService<SitterProfile> {
      * @throws com.pet.common.exception.BusinessException 1004 档案不存在 / 1005 未通过审核 / 1006 暂停接单
      */
     void requireGrabable(Long sitterId);
+
+    /** 查询指定接单员信誉分；档案不存在抛 1004。 */
+    int getCreditScore(Long sitterId);
+
+    /** 原子扣减信誉分并返回扣减后的分数，最低为 0。 */
+    int deductCreditScore(Long sitterId, int points);
 }

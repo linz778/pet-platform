@@ -46,6 +46,9 @@ public class SitterProfile extends BaseEntity {
     /** 信誉等级 1-5 */
     private Integer creditLevel;
 
+    /** 信誉分 0-100，新接单员初始 100 分 */
+    private Integer creditScore;
+
     private BigDecimal currentLat;
 
     private BigDecimal currentLng;

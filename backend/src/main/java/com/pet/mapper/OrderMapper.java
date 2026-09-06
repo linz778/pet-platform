@@ -62,6 +62,12 @@ public interface OrderMapper extends BaseMapper<Order> {
             + "WHERE id = #{id} AND status IN (0, 1) AND deleted = 0")
     int markCancelled(@Param("id") Long id, @Param("reason") String reason);
 
+    /** 接单员取消自己尚未开始服务的订单：只允许已接单状态，并校验 sitter_id 防止越权。 */
+    @Update("UPDATE t_order SET status = 6, cancel_time = NOW(), cancel_reason = #{reason}, update_time = NOW() "
+            + "WHERE id = #{id} AND sitter_id = #{sitterId} AND status = 2 AND deleted = 0")
+    int markCancelledBySitter(@Param("id") Long id, @Param("sitterId") Long sitterId,
+                              @Param("reason") String reason);
+
     /** Redis GEO 索引懒重建用：取出全部待接单订单的坐标（仅填充 id/addressLng/addressLat）。 */
     @Select("SELECT id, address_lng, address_lat FROM t_order WHERE status = 1 AND deleted = 0")
     List<Order> selectPendingForGeoRebuild();
