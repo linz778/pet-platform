@@ -142,6 +142,8 @@
             <EvidenceList :evidences="evidences" />
           </template>
 
+          <OrderReviews v-if="detail.status === 5" :order-id="detail.id" target-label="接单员" />
+
           <div class="drawer-actions">
             <el-button v-if="detail.status === 0" type="primary" @click="onPay(detail)">立即支付</el-button>
             <el-button v-if="detail.status === 0 || detail.status === 1" @click="onCancel(detail)">取消订单</el-button>
@@ -165,6 +167,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { acceptOrder, cancelOrder, getOrder, getOrderEvidence, pageMyOrders, payOrder } from '@/api/order'
 import EvidenceList from '@/components/EvidenceList.vue'
+import OrderReviews from '@/components/OrderReviews.vue'
 import { money } from '@/utils/format'
 
 const TABS = { 0: '待支付', 1: '待接单', 2: '已接单', 3: '服务中', 4: '待验收', 5: '已完成', 6: '已取消' }

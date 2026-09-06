@@ -248,6 +248,7 @@
 
           <h4 class="drawer-sub">存证记录</h4>
           <EvidenceList :evidences="evidences" />
+          <OrderReviews v-if="detail.status === 5" :order-id="detail.id" target-label="雇主" />
         </template>
       </div>
     </el-drawer>
@@ -270,6 +271,7 @@ import {
 } from '@/api/sitter'
 import EvidenceList from '@/components/EvidenceList.vue'
 import ImageUpload from '@/components/ImageUpload.vue'
+import OrderReviews from '@/components/OrderReviews.vue'
 import { getCurrentPosition } from '@/utils/amap'
 import { formatDateTime, money } from '@/utils/format'
 
