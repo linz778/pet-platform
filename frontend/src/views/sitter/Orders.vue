@@ -6,7 +6,19 @@
           <h2 class="title">🎒 我的接单</h2>
           <p class="subtitle">抢单成功后的订单都在这里。上门完成服务并由用户验收后，到手金额才会结算进收益钱包。</p>
         </div>
-        <el-button @click="load">刷新</el-button>
+        <div class="head-actions">
+          <div class="credit-box">
+            <span class="credit-label">信誉分</span>
+            <strong>{{ profile?.creditScore ?? '--' }}<small>/100</small></strong>
+            <el-progress
+              :percentage="profile?.creditScore ?? 0"
+              :show-text="false"
+              :stroke-width="6"
+              :color="creditColor"
+            />
+          </div>
+          <el-button @click="reload">刷新</el-button>
+        </div>
       </div>
     </el-card>
 
@@ -62,6 +74,9 @@
             </div>
             <div class="foot-actions">
               <el-button link @click="openDetail(o.id)">详情</el-button>
+              <el-button v-if="o.status === 2" type="danger" plain size="small" @click="onCancel(o)">
+                取消订单
+              </el-button>
               <el-button type="primary" size="small" @click="openDetail(o.id)">
                 {{ ACTION_TEXT[o.status] ?? '详情' }}
               </el-button>
@@ -109,11 +124,24 @@
               <span class="amount">¥{{ money(detail.sitterIncome) }}</span>
               <span class="pay-state">平台抽成 ¥{{ money(detail.commission) }}</span>
             </el-descriptions-item>
+            <el-descriptions-item v-if="detail.cancelReason" label="取消原因">
+              {{ detail.cancelReason }}
+            </el-descriptions-item>
           </el-descriptions>
 
           <!-- 只有「已接单 / 服务中」还有事可做，其余状态这里整块不渲染 -->
           <template v-if="detail.status === 2 || detail.status === 3">
             <h4 class="drawer-sub">履约操作</h4>
+
+            <div v-if="detail.status === 2" class="cancel-step">
+              <div>
+                <strong>无法继续履约？</strong>
+                <p>取消原因会展示给雇主；接单满 30 分钟后取消将扣 5 信誉分。</p>
+              </div>
+              <el-button type="danger" plain :loading="cancelling" @click="onCancel(detail)">
+                取消订单
+              </el-button>
+            </div>
 
             <div class="step">
               <div class="step-head">
@@ -262,6 +290,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { getOrder, getOrderEvidence } from '@/api/order'
 import { getCategory } from '@/api/serviceCategory'
 import {
+  cancelTakenOrder,
   checkInOrder,
   finishOrder,
   getMySitterProfile,
@@ -277,11 +306,11 @@ import { formatDateTime, money } from '@/utils/format'
 
 const router = useRouter()
 
-// 抢单之后的状态才可能出现在这里，所以不含「待支付 / 待接单」；已取消的单主人取消时我还没抢到
-const TABS = { 2: '已接单', 3: '服务中', 4: '待验收', 5: '已完成' }
+// 接单员主动取消后仍保留 sitter_id，方便本人查看取消原因，因此列表包含「已取消」。
+const TABS = { 2: '已接单', 3: '服务中', 4: '待验收', 5: '已完成', 6: '已取消' }
 const STATUS_TAG = { 2: 'primary', 3: 'primary', 4: 'warning', 5: 'success', 6: 'info' }
-// 卡片上的主按钮只是「下一步该干什么」的提示，四种状态都打开同一个抽屉
-const ACTION_TEXT = { 2: '到达打卡', 3: '继续履约', 4: '查看存证', 5: '查看存证' }
+// 卡片上的主按钮只是「下一步该干什么」的提示，所有状态都打开同一个抽屉。
+const ACTION_TEXT = { 2: '到达打卡', 3: '继续履约', 4: '查看存证', 5: '查看存证', 6: '查看原因' }
 
 const activeTab = ref('all')
 const orders = ref([])
@@ -301,12 +330,20 @@ const photos = reactive({})
 const checkingIn = ref(false)
 const savingItem = ref('')
 const finishing = ref(false)
+const cancelling = ref(false)
 const tracking = ref(false)
 const uploadingTrack = ref(false)
 const trackPoints = ref([])
 // 定位被拒时才去拉档案坐标，别每次打开抽屉都多一个请求
 const profile = ref(null)
 let watchId = null
+
+const creditColor = computed(() => {
+  const score = profile.value?.creditScore ?? 0
+  if (score >= 80) return '#4f825f'
+  if (score >= 60) return '#e6a23c'
+  return '#f56c6c'
+})
 
 // 订单详情里没有 categoryCode，靠服务类别详情判断是不是户外散步（只有它需要轨迹）
 const isWalking = computed(() => category.value?.code === 'WALKING')
@@ -334,6 +371,14 @@ async function load() {
   } finally {
     loading.value = false
   }
+}
+
+async function loadProfile() {
+  profile.value = await getMySitterProfile().catch(() => profile.value)
+}
+
+async function reload() {
+  await Promise.all([load(), loadProfile()])
 }
 
 function onTabChange() {
@@ -398,7 +443,67 @@ async function refresh() {
     detail.value = await getOrder(id).catch(() => detail.value)
     await loadFulfillment(detail.value)
   }
-  await load()
+  await reload()
+}
+
+function acceptedMinutes(takenTime) {
+  const timestamp = new Date(String(takenTime).replace(' ', 'T')).getTime()
+  if (!Number.isFinite(timestamp)) return 0
+  return Math.max(0, Math.floor((Date.now() - timestamp) / 60000))
+}
+
+async function onCancel(order) {
+  let target = order
+  if (!target?.takenTime) {
+    target = await getOrder(order.id).catch(() => null)
+  }
+  if (!target) return
+
+  const minutes = acceptedMinutes(target.takenTime)
+  const willDeduct = minutes >= 30
+  const warning = willDeduct
+    ? `你已接单约 ${minutes} 分钟，本次取消将扣 5 信誉分。`
+    : `你已接单约 ${minutes} 分钟，目前仍在 30 分钟宽限期内，不扣信誉分。`
+
+  let reason
+  try {
+    const result = await ElMessageBox.prompt(
+      `${warning} 订单取消后，担保款会全额退回雇主。请填写取消原因：`,
+      '取消已接订单',
+      {
+        type: 'warning',
+        confirmButtonText: willDeduct ? '确认取消并扣分' : '确认取消',
+        cancelButtonText: '继续履约',
+        inputPlaceholder: '例如：突发身体不适，无法按时上门',
+        inputType: 'textarea',
+        inputValidator: (value) => {
+          const text = value?.trim()
+          if (!text) return '请填写取消原因'
+          if (text.length > 255) return '取消原因不能超过 255 字'
+          return true
+        }
+      }
+    )
+    reason = result.value.trim()
+  } catch {
+    return
+  }
+
+  cancelling.value = true
+  try {
+    const result = await cancelTakenOrder(target.id, reason)
+    if (result.creditDeducted) {
+      ElMessage.warning(`订单已取消，扣除 ${result.deductedPoints} 分，当前信誉分 ${result.creditScore}/100`)
+    } else {
+      ElMessage.success(`订单已取消，未扣信誉分，当前信誉分 ${result.creditScore}/100`)
+    }
+    detailVisible.value = false
+    await reload()
+  } catch {
+    // 失败提示由请求拦截器统一展示，页面保留原订单状态
+  } finally {
+    cancelling.value = false
+  }
 }
 
 async function resolveCoords() {
@@ -542,7 +647,7 @@ function onDrawerClose() {
 }
 
 onBeforeUnmount(stopWatch)
-onMounted(load)
+onMounted(reload)
 </script>
 
 <style scoped>
@@ -555,6 +660,37 @@ onMounted(load)
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+}
+
+.head-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.credit-box {
+  width: 150px;
+}
+
+.credit-box strong {
+  margin-left: 8px;
+  font-size: 18px;
+  color: var(--pp-primary);
+}
+
+.credit-box small {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--pp-muted);
+}
+
+.credit-label {
+  font-size: 12px;
+  color: var(--pp-muted);
+}
+
+.credit-box :deep(.el-progress) {
+  margin-top: 4px;
 }
 
 .title {
@@ -678,6 +814,29 @@ onMounted(load)
 
 .wait-alert {
   margin-top: 16px;
+}
+
+.cancel-step {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px;
+  margin-bottom: 10px;
+  border: 1px solid var(--el-color-danger-light-7);
+  border-radius: var(--pp-radius);
+  background: var(--el-color-danger-light-9);
+}
+
+.cancel-step strong {
+  font-size: 13px;
+}
+
+.cancel-step p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--pp-muted);
 }
 
 .step {

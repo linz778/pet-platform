@@ -61,6 +61,14 @@ export function pageMyTakenOrders(params) {
 }
 
 /**
+ * 接单员取消尚未打卡的已接订单。原因必填；接单满 30 分钟后取消扣 5 信誉分。
+ * @returns {{creditDeducted:boolean,deductedPoints:number,creditScore:number}}
+ */
+export function cancelTakenOrder(orderId, reason) {
+  return request.post(`/sitter/order/${orderId}/cancel`, { reason })
+}
+
+/**
  * 到达定位打卡：已接单 → 服务中。
  * 坐标距服务地址超出后端 pet-platform.geo.check-in-radius（默认 200 米）返回 2004，
  * 提示语里带着实际距离，直接弹给用户看即可。
