@@ -22,6 +22,9 @@ const routes = [
       { path: 'user/pets', name: 'user-pets', component: () => import('@/views/user/Pets.vue'), meta: { roles: ['USER'] } },
       { path: 'user/orders', name: 'user-orders', component: () => import('@/views/user/Orders.vue'), meta: { roles: ['USER'] } },
 
+      // 用户与接单员共用的宠物社区
+      { path: 'community', name: 'community', component: () => import('@/views/Community.vue'), meta: { roles: ['USER', 'SITTER'] } },
+
       // 接单员端
       { path: 'sitter/hall', name: 'sitter-hall', component: () => import('@/views/sitter/Hall.vue'), meta: { roles: ['SITTER'] } },
       { path: 'sitter/orders', name: 'sitter-orders', component: () => import('@/views/sitter/Orders.vue'), meta: { roles: ['SITTER'] } },

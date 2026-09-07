@@ -5,11 +5,13 @@
       <el-menu mode="horizontal" :default-active="route.path" router :ellipsis="false" class="menu">
         <template v-if="userStore.role === 'USER'">
           <el-menu-item index="/user/home">首页</el-menu-item>
+          <el-menu-item index="/community">宠物社区</el-menu-item>
           <el-menu-item index="/user/pets">我的宠物</el-menu-item>
           <el-menu-item index="/user/orders">我的订单</el-menu-item>
         </template>
         <template v-else-if="userStore.role === 'SITTER'">
           <el-menu-item index="/sitter/hall">接单大厅</el-menu-item>
+          <el-menu-item index="/community">宠物社区</el-menu-item>
           <el-menu-item index="/sitter/orders">我的接单</el-menu-item>
           <el-menu-item index="/sitter/wallet">收益钱包</el-menu-item>
         </template>
