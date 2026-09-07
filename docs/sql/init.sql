@@ -160,6 +160,10 @@ CREATE TABLE t_order (
     user_id          BIGINT      NOT NULL COMMENT '下单用户',
     pet_id           BIGINT      NOT NULL COMMENT '服务宠物',
     category_id      BIGINT      NOT NULL COMMENT '服务类别',
+    order_type       TINYINT     NOT NULL DEFAULT 0 COMMENT '0=标准服务 1=悬赏任务',
+    task_title       VARCHAR(100)         DEFAULT NULL COMMENT '悬赏任务标题',
+    task_description VARCHAR(1000)        DEFAULT NULL COMMENT '悬赏任务说明',
+    task_review_remark VARCHAR(500)       DEFAULT NULL COMMENT '管理员审核说明',
     sitter_id        BIGINT               DEFAULT NULL COMMENT '接单员 user_id',
     service_address  VARCHAR(255) NOT NULL COMMENT '服务地址',
     address_lat      DECIMAL(10,7) NOT NULL COMMENT '服务地址纬度',
@@ -187,6 +191,7 @@ CREATE TABLE t_order (
     KEY idx_user (user_id),
     KEY idx_sitter (sitter_id),
     KEY idx_status (status),
+    KEY idx_order_type_status (order_type, status),
     KEY idx_geo_time (address_lat, address_lng, service_start)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单表';
 
@@ -198,7 +203,7 @@ CREATE TABLE t_order_evidence (
     id           BIGINT      NOT NULL AUTO_INCREMENT,
     order_id     BIGINT      NOT NULL,
     sitter_id    BIGINT      NOT NULL COMMENT '上传接单员',
-    type         TINYINT     NOT NULL COMMENT '1=进门定位打卡 2=作业清单存证 3=散步轨迹',
+    type         TINYINT     NOT NULL COMMENT '1=进门定位打卡 2=作业清单存证 3=散步轨迹 4=悬赏任务证明',
     check_item   VARCHAR(50)          DEFAULT NULL COMMENT '清单项:换粮/添水/铲砂/梳毛等',
     image_url    VARCHAR(500)         DEFAULT NULL COMMENT '存证照片',
     lat          DECIMAL(10,7)        DEFAULT NULL COMMENT '上传纬度',
@@ -380,7 +385,8 @@ INSERT INTO t_service_category (name, code, base_price, unit, holiday_rate, comm
 ('上门喂养', 'FEEDING', 40.00, '次', 1.50, 0.100, '换粮,添水,铲砂,梳毛,陪玩', 1, NOW(), NOW()),
 ('上门洗护', 'GROOMING', 80.00, '次', 1.50, 0.120, '梳毛,洗澡,吹干,剪指甲,清洁耳道', 1, NOW(), NOW()),
 ('户外散步', 'WALKING', 30.00, '次', 1.30, 0.100, '出门,牵引,散步轨迹,返程,喂水', 1, NOW(), NOW()),
-('陪伴互动', 'COMPANION', 35.00, '小时', 1.30, 0.100, '玩具互动,喂食零食,状态观察,陪玩时长记录', 1, NOW(), NOW());
+('陪伴互动', 'COMPANION', 35.00, '小时', 1.30, 0.100, '玩具互动,喂食零食,状态观察,陪玩时长记录', 1, NOW(), NOW()),
+('任务悬赏', 'BOUNTY', 0.01, '单', 1.00, 0.100, '', 0, NOW(), NOW());
 
 -- 为演示账号建钱包
 -- 注意：user_id = 0 是平台佣金账户（约定），验收结算时平台抽成入账到此账户

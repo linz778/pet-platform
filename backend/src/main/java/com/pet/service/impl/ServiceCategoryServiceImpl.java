@@ -42,7 +42,9 @@ public class ServiceCategoryServiceImpl extends ServiceImpl<ServiceCategoryMappe
 
     @Override
     public List<ServiceCategoryVO> listAllRules() {
-        return list(Wrappers.<ServiceCategory>lambdaQuery().orderByAsc(ServiceCategory::getId))
+        return list(Wrappers.<ServiceCategory>lambdaQuery()
+                .ne(ServiceCategory::getCode, "BOUNTY")
+                .orderByAsc(ServiceCategory::getId))
                 .stream().map(this::toVO).toList();
     }
 

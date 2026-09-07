@@ -450,6 +450,10 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         vo.setId(o.getId());
         vo.setOrderNo(o.getOrderNo());
         vo.setCategoryId(o.getCategoryId());
+        vo.setOrderType(o.getOrderType());
+        vo.setTaskTitle(o.getTaskTitle());
+        vo.setTaskDescription(o.getTaskDescription());
+        vo.setTaskReviewRemark(o.getTaskReviewRemark());
         vo.setPetId(o.getPetId());
         vo.setServiceAddress(o.getServiceAddress());
         vo.setServiceStart(o.getServiceStart());
@@ -463,6 +467,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
 
         ServiceCategory category = categories.get(o.getCategoryId());
         if (category != null) {
+            vo.setCategoryCode(category.getCode());
             vo.setCategoryName(category.getName());
             vo.setUnit(category.getUnit());
         }
@@ -580,6 +585,9 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             vo.setId(o.getId());
             vo.setOrderNo(o.getOrderNo());
             vo.setCategoryId(o.getCategoryId());
+            vo.setOrderType(o.getOrderType());
+            vo.setTaskTitle(o.getTaskTitle());
+            vo.setTaskDescription(o.getTaskDescription());
             vo.setServiceAddress(o.getServiceAddress());
             vo.setAddressLng(o.getAddressLng());
             vo.setAddressLat(o.getAddressLat());

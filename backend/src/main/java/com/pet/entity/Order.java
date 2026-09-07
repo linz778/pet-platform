@@ -33,6 +33,15 @@ public class Order extends BaseEntity {
 
     private Long categoryId;
 
+    /** 0=标准服务，1=用户自定义悬赏任务 */
+    private Integer orderType;
+
+    private String taskTitle;
+
+    private String taskDescription;
+
+    private String taskReviewRemark;
+
     /** 接单员 user_id，未接单时为 null */
     private Long sitterId;
 

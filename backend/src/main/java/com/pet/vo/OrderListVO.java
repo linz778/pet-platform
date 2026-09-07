@@ -17,6 +17,17 @@ public class OrderListVO {
 
     private Long categoryId;
 
+    private String categoryCode;
+
+    /** 0=标准服务，1=悬赏任务 */
+    private Integer orderType;
+
+    private String taskTitle;
+
+    private String taskDescription;
+
+    private String taskReviewRemark;
+
     private String categoryName;
 
     /** 计价单位（次/小时），本期仅展示 */

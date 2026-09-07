@@ -21,7 +21,14 @@ public class HallOrderVO {
 
     private Long categoryId;
 
-    /** 类别编码（FEEDING / GROOMING / WALKING / COMPANION），前端据此挑图标，名称是可以在后台改的 */
+    /** 0=标准服务，1=悬赏任务 */
+    private Integer orderType;
+
+    private String taskTitle;
+
+    private String taskDescription;
+
+    /** 类别编码（FEEDING / GROOMING / WALKING / COMPANION / BOUNTY） */
     private String categoryCode;
 
     private String categoryName;

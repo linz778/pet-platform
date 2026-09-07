@@ -13,7 +13,9 @@ public enum EvidenceType {
     /** 作业清单逐项拍照，check_item 对应服务类别 checklist_template 中的一项 */
     CHECKLIST(2, "作业清单存证"),
     /** 散步轨迹，track_json 存轨迹点数组 */
-    TRACK(3, "散步轨迹");
+    TRACK(3, "散步轨迹"),
+    /** 悬赏任务完成证明，可上传多张 */
+    TASK_PROOF(4, "悬赏任务证明");
 
     private final int code;
     private final String desc;
