@@ -57,7 +57,7 @@ public interface OrderMapper extends BaseMapper<Order> {
             + "WHERE id = #{id} AND status = 4 AND pay_status = 1 AND deleted = 0")
     int markAccepted(@Param("id") Long id);
 
-    /** 待支付 / 待接单 → 已取消。已接单之后不允许取消（需走仲裁流程，本期未实现）。 */
+    /** 待支付 / 待接单 → 已取消。完成服务后有异议必须走申诉仲裁。 */
     @Update("UPDATE t_order SET status = 6, cancel_time = NOW(), cancel_reason = #{reason}, update_time = NOW() "
             + "WHERE id = #{id} AND status IN (0, 1) AND deleted = 0")
     int markCancelled(@Param("id") Long id, @Param("reason") String reason);

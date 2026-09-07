@@ -46,7 +46,7 @@ public class OrderController {
         return Result.success(orderService.create(dto));
     }
 
-    @Operation(summary = "我的订单分页", description = "status 为空表示全部：0待支付 1待接单 2已接单 3服务中 4待验收 5已完成 6已取消")
+    @Operation(summary = "我的订单分页", description = "status 为空表示全部：0待支付 1待接单 2已接单 3服务中 4待验收 5已完成 6已取消 7仲裁中")
     @GetMapping("/my/page")
     public Result<PageResult<OrderListVO>> myPage(@Valid OrderQuery query) {
         return Result.success(orderService.pageMine(query));

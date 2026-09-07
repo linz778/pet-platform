@@ -43,6 +43,9 @@ public interface WalletService extends IService<Wallet> {
     /** 取消已支付订单：担保资金原路退回可用余额。 */
     void refundOrder(Long orderId, Long userId, BigDecimal amount);
 
+    /** 退款并使用指定流水说明；用于区分普通取消退款与平台仲裁退款。 */
+    void refundOrder(Long orderId, Long userId, BigDecimal amount, String remark);
+
     /**
      * 验收结算：担保资金从下单用户的冻结额中划出，接单员到手与平台抽成分别入账。
      * <p>

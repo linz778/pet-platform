@@ -72,7 +72,11 @@ public class ArbitrationServiceImpl extends ServiceImpl<ArbitrationMapper, Arbit
         arbitration.setOrderId(orderId);
         arbitration.setComplainantId(userId);
         arbitration.setReason(StrUtil.trim(dto.getReason()));
-        arbitration.setEvidence(CommaListUtil.join(dto.getEvidenceUrls()));
+        String evidence = CommaListUtil.join(dto.getEvidenceUrls());
+        if (evidence != null && evidence.length() > 1000) {
+            throw new BusinessException(ResultCode.VALIDATE_FAILED.getCode(), "证据照片地址总长度超出限制");
+        }
+        arbitration.setEvidence(evidence);
         arbitration.setStatus(ArbitrationStatus.PENDING.getCode());
         arbitration.setRefundAmount(BigDecimal.ZERO);
         save(arbitration);
@@ -132,7 +136,8 @@ public class ArbitrationServiceImpl extends ServiceImpl<ArbitrationMapper, Arbit
                 throw new BusinessException(ResultCode.ORDER_STATUS_ILLEGAL);
             }
             // 订单与申诉两次条件更新成功后才动钱；任一步失败，事务会把三者全部回滚。
-            walletService.refundOrder(order.getId(), order.getUserId(), order.getAmount());
+            walletService.refundOrder(order.getId(), order.getUserId(), order.getAmount(),
+                    "平台仲裁通过，担保资金退回余额");
         } else if (orderMapper.markArbitrationRejected(order.getId()) == 0) {
             throw new BusinessException(ResultCode.ORDER_STATUS_ILLEGAL);
         }

@@ -135,7 +135,8 @@ class ArbitrationServiceTest {
         service.decide(ARBITRATION_ID, decision(true));
 
         verify(orderMapper).markArbitrationRefunded(eq(ORDER_ID), any());
-        verify(walletService).refundOrder(ORDER_ID, OWNER_ID, new BigDecimal("35.00"));
+        verify(walletService).refundOrder(ORDER_ID, OWNER_ID, new BigDecimal("35.00"),
+                "平台仲裁通过，担保资金退回余额");
     }
 
     @Test
@@ -152,7 +153,7 @@ class ArbitrationServiceTest {
         service.decide(ARBITRATION_ID, decision(false));
 
         verify(orderMapper).markArbitrationRejected(ORDER_ID);
-        verify(walletService, never()).refundOrder(any(), any(), any());
+        verify(walletService, never()).refundOrder(any(), any(), any(), any());
     }
 
     @Test
@@ -170,6 +171,6 @@ class ArbitrationServiceTest {
                 .extracting("code").isEqualTo(ResultCode.ARBITRATION_ALREADY_DECIDED.getCode());
 
         verify(orderMapper, never()).markArbitrationRefunded(any(), any());
-        verify(walletService, never()).refundOrder(any(), any(), any());
+        verify(walletService, never()).refundOrder(any(), any(), any(), any());
     }
 }

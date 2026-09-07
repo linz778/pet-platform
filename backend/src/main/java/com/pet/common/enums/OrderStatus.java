@@ -6,9 +6,8 @@ import lombok.Getter;
  * 订单状态（对应 t_order.status）。
  * <p>
  * 合法流转：0→1（支付）→2（抢单/指派）→3（到达打卡）→4（完成服务）→5（用户验收）。
- * 0/1 可取消转 6；1 取消时触发全额退款。
- * <p>
- * {@link #ARBITRATING} 本期无任何代码路径会产生，仅为与表注释保持对齐而保留。
+ * 0/1 可取消转 6；1 取消时触发全额退款。待验收订单可由用户申诉从 4→7；平台驳回后
+ * 7→4，平台支持申诉并退款后 7→6。
  */
 @Getter
 public enum OrderStatus {
@@ -47,7 +46,7 @@ public enum OrderStatus {
         return s == null ? "" : s.desc;
     }
 
-    /** 仅待支付与待接单允许取消；已接单后需走仲裁流程（本期未实现）。 */
+    /** 仅待支付与待接单允许普通取消；完成服务后有异议走申诉仲裁。 */
     public boolean cancellable() {
         return this == UNPAID || this == PENDING;
     }

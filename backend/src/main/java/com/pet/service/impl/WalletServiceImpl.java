@@ -110,13 +110,19 @@ public class WalletServiceImpl extends ServiceImpl<WalletMapper, Wallet> impleme
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void refundOrder(Long orderId, Long userId, BigDecimal amount) {
+        refundOrder(orderId, userId, amount, "订单取消，担保资金退回余额");
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void refundOrder(Long orderId, Long userId, BigDecimal amount, String remark) {
         Wallet wallet = requireWallet(userId);
         // unfreezeToBalance 的条件是 frozen >= amount，返回 0 说明这笔担保资金已经退过或从未冻结，
         // 属于重复退款，必须挡住而不是把余额凭空加一遍
         if (baseMapper.unfreezeToBalance(userId, amount) == 0) {
             throw new BusinessException(ResultCode.ORDER_STATUS_ILLEGAL);
         }
-        writeTransaction(wallet, TransactionType.REFUND, amount, orderId, "订单取消，担保资金退回余额");
+        writeTransaction(wallet, TransactionType.REFUND, amount, orderId, remark);
     }
 
     @Override

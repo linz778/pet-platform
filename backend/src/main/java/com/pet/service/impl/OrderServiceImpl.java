@@ -214,7 +214,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         Order order = requireOwned(orderId, userId);
         String reason = StrUtil.blankToDefault(dto == null ? null : dto.getReason(), "用户主动取消");
 
-        // 条件更新限定 status IN (0, 1)：已接单之后的取消要走仲裁流程，本期不实现
+        // 条件更新限定 status IN (0, 1)：完成服务后有异议必须走申诉仲裁
         if (baseMapper.markCancelled(orderId, reason) == 0) {
             throw new BusinessException(ResultCode.ORDER_STATUS_ILLEGAL);
         }
