@@ -38,6 +38,20 @@ export function deleteAddress(id) {
   return request.delete(`/sitter/address/${id}`)
 }
 
+/** 当前接单员的私人宠物照护手记。 */
+export function listPetNotes() {
+  return request.get('/sitter/pet-note')
+}
+
+/** 为服务过的宠物新建或更新照护手记。 */
+export function savePetNote(data) {
+  return request.post('/sitter/pet-note', data)
+}
+
+export function deletePetNote(id) {
+  return request.delete(`/sitter/pet-note/${id}`)
+}
+
 /**
  * 接单大厅：以当前坐标为圆心按距离升序检索附近的待接单订单。
  * 列表里没有下单用户的身份与备注，抢到单之后从订单详情里取。

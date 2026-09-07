@@ -22,6 +22,8 @@ public enum ResultCode {
     SITTER_ALREADY_AUDITED(1007, "资质已通过审核，如需修改请联系平台"),
     SITTER_ADDRESS_NOT_FOUND(1008, "地址不存在"),
     USER_ADDRESS_NOT_FOUND(1009, "地址不存在"),
+    SITTER_PET_NOT_SERVED(1010, "只能为自己接单服务过的宠物建立笔记"),
+    SITTER_PET_NOTE_NOT_FOUND(1011, "宠物照护笔记不存在"),
 
     // 订单 / 抢单 / 履约 2xxx
     ORDER_NOT_FOUND(2001, "订单不存在"),

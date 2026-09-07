@@ -411,6 +411,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         Pet pet = pets.get(o.getPetId());
         if (pet != null) {
             vo.setPetName(pet.getName());
+            vo.setPetSpecies(pet.getSpecies());
             vo.setPetDeleted(pet.getDeleted() != null && pet.getDeleted() == 1);
         }
     }

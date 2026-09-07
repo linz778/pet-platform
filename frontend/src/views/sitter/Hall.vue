@@ -74,6 +74,51 @@
     </el-card>
 
     <template v-else-if="approved">
+      <el-card class="section-card notebook-card">
+        <div class="notebook-head">
+          <div>
+            <span class="notebook-kicker">📒 私人照护手记</span>
+            <h2>记住它的小习惯，下次见面更熟悉</h2>
+            <p>笔记只对你自己可见，并且只能记录已经接单服务过的宠物。</p>
+          </div>
+          <div class="notebook-tools">
+            <el-input v-model="noteKeyword" clearable placeholder="搜索宠物或笔记" prefix-icon="Search" />
+            <el-button type="primary" :disabled="servedPets.length === 0" @click="openNoteDialog()">＋ 记录宠物</el-button>
+          </div>
+        </div>
+
+        <div v-loading="loadingNotes" class="note-list">
+          <el-empty
+            v-if="!loadingNotes && filteredNotes.length === 0"
+            :image-size="62"
+            :description="petNotes.length ? '没有找到相关笔记' : '还没有照护手记，接单后可以记录宠物习性'"
+          />
+          <article v-for="note in filteredNotes" :key="note.id" class="pet-note">
+            <header class="pet-note-head">
+              <el-avatar :size="46" :src="note.petAvatar" class="note-avatar">{{ note.petName?.slice(0, 1) || '宠' }}</el-avatar>
+              <div>
+                <strong>{{ note.petName }}</strong>
+                <span>{{ note.petSpecies || '宠物' }} · 更新于 {{ note.updateTime?.slice(0, 16)?.replace('T', ' ') }}</span>
+              </div>
+              <el-dropdown trigger="click" @command="(command) => onNoteCommand(command, note)">
+                <button type="button" class="note-menu" aria-label="笔记操作">•••</button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="edit">编辑笔记</el-dropdown-item>
+                    <el-dropdown-item command="delete" divided>删除笔记</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </header>
+            <div class="note-sections">
+              <p v-if="note.habits"><span>🐾 性格习性</span>{{ note.habits }}</p>
+              <p v-if="note.feedingNotes"><span>🥣 饮食禁忌</span>{{ note.feedingNotes }}</p>
+              <p v-if="note.careNotes"><span>💡 服务心得</span>{{ note.careNotes }}</p>
+            </div>
+          </article>
+        </div>
+      </el-card>
+
       <el-card class="section-card">
         <div class="filter-bar">
           <div class="filter-item">
@@ -311,6 +356,32 @@
         <el-button type="primary" :loading="submittingProfile" @click="onSubmitProfile">提交审核</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="noteDialogVisible" :title="noteForm.id ? '编辑照护手记' : '记录服务宠物'" width="580px">
+      <el-form ref="noteFormRef" :model="noteForm" :rules="noteRules" label-position="top">
+        <el-form-item label="选择服务过的宠物" prop="petId">
+          <el-select v-model="noteForm.petId" class="note-pet-select" placeholder="选择宠物" :disabled="Boolean(noteForm.id)">
+            <el-option v-for="pet in servedPets" :key="pet.petId" :value="pet.petId" :label="`${pet.petName} · ${pet.petSpecies || '宠物'}`">
+              <div class="pet-option"><span>{{ pet.petName }}</span><small>{{ pet.petSpecies || '宠物' }} · 来自我的接单</small></div>
+            </el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="性格与习性">
+          <el-input v-model="noteForm.habits" type="textarea" :rows="2" maxlength="500" show-word-limit placeholder="例如：怕生，进门后先蹲下让它闻手；喜欢躲在沙发底下" />
+        </el-form-item>
+        <el-form-item label="饮食与禁忌">
+          <el-input v-model="noteForm.feedingNotes" type="textarea" :rows="2" maxlength="500" show-word-limit placeholder="例如：对鸡肉过敏；主粮每次半杯，零食需先征得主人同意" />
+        </el-form-item>
+        <el-form-item label="服务心得与下次准备">
+          <el-input v-model="noteForm.careNotes" type="textarea" :rows="4" maxlength="1000" show-word-limit placeholder="记录有效的互动方式、需要携带的物品或下次特别注意的事情" />
+        </el-form-item>
+      </el-form>
+      <p class="dialog-note">请勿记录主人的身份证号、支付信息等无关隐私。</p>
+      <template #footer>
+        <el-button @click="noteDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="savingNote" @click="submitNote">保存笔记</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -323,10 +394,14 @@ import ImageUpload from '@/components/ImageUpload.vue'
 import {
   createAddress as createSitterAddress,
   deleteAddress as deleteSitterAddress,
+  deletePetNote,
   getMySitterProfile,
   grabOrder,
   listMyAddresses,
+  listPetNotes,
+  pageMyTakenOrders,
   pageHallOrders,
+  savePetNote,
   setDefaultAddress,
   submitSitterProfile,
   updateAddress as updateSitterAddress
@@ -419,6 +494,22 @@ const total = ref(0)
 const loading = ref(false)
 const grabbingId = ref(null)
 const query = reactive({ page: 1, size: 10 })
+
+const petNotes = ref([])
+const servedPets = ref([])
+const loadingNotes = ref(false)
+const noteKeyword = ref('')
+const noteDialogVisible = ref(false)
+const savingNote = ref(false)
+const noteFormRef = ref(null)
+const noteForm = reactive({ id: null, petId: null, habits: '', feedingNotes: '', careNotes: '' })
+const noteRules = { petId: [{ required: true, message: '请选择服务过的宠物', trigger: 'change' }] }
+const filteredNotes = computed(() => {
+  const keyword = noteKeyword.value.trim().toLowerCase()
+  if (!keyword) return petNotes.value
+  return petNotes.value.filter((note) => [note.petName, note.petSpecies, note.habits, note.feedingNotes, note.careNotes]
+    .some((value) => value?.toLowerCase().includes(keyword)))
+})
 
 const profileDialogVisible = ref(false)
 const submittingProfile = ref(false)
@@ -795,6 +886,83 @@ function widenRadius() {
   onFilterChange()
 }
 
+async function loadNotebook() {
+  loadingNotes.value = true
+  try {
+    const [notes, orderPage] = await Promise.all([
+      listPetNotes(),
+      pageMyTakenOrders({ page: 1, size: 100 })
+    ])
+    petNotes.value = notes ?? []
+    const uniquePets = new Map()
+    for (const order of orderPage.records ?? []) {
+      if (order.petId && !uniquePets.has(order.petId)) {
+        uniquePets.set(order.petId, { petId: order.petId, petName: order.petName || `宠物 #${order.petId}`, petSpecies: order.petSpecies })
+      }
+    }
+    servedPets.value = [...uniquePets.values()]
+  } catch {
+    // 拦截器已提示
+  } finally {
+    loadingNotes.value = false
+  }
+}
+
+function openNoteDialog(note = null) {
+  Object.assign(noteForm, {
+    id: note?.id ?? null,
+    petId: note?.petId ?? servedPets.value[0]?.petId ?? null,
+    habits: note?.habits ?? '',
+    feedingNotes: note?.feedingNotes ?? '',
+    careNotes: note?.careNotes ?? ''
+  })
+  noteFormRef.value?.clearValidate()
+  noteDialogVisible.value = true
+}
+
+async function submitNote() {
+  const valid = await noteFormRef.value.validate().catch(() => false)
+  if (!valid) return
+  if (![noteForm.habits, noteForm.feedingNotes, noteForm.careNotes].some((value) => value.trim())) {
+    ElMessage.warning('请至少填写一项照护记录')
+    return
+  }
+  savingNote.value = true
+  try {
+    await savePetNote({
+      petId: noteForm.petId,
+      habits: noteForm.habits,
+      feedingNotes: noteForm.feedingNotes,
+      careNotes: noteForm.careNotes
+    })
+    noteDialogVisible.value = false
+    await loadNotebook()
+    ElMessage.success(noteForm.id ? '笔记已更新' : '笔记已保存')
+  } catch {
+    // 拦截器已提示
+  } finally {
+    savingNote.value = false
+  }
+}
+
+async function onNoteCommand(command, note) {
+  if (command === 'edit') {
+    openNoteDialog(note)
+    return
+  }
+  const confirmed = await ElMessageBox.confirm(`确定删除「${note.petName}」的照护笔记吗？`, '删除笔记', {
+    type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消'
+  }).catch(() => false)
+  if (!confirmed) return
+  try {
+    await deletePetNote(note.id)
+    await loadNotebook()
+    ElMessage.success('笔记已删除')
+  } catch {
+    // 拦截器已提示
+  }
+}
+
 function onMapLoaded({ AMap, map }) {
   amapRef = AMap
   mapInstance = map
@@ -911,7 +1079,7 @@ onMounted(async () => {
 
   // 先用默认地址簿或旧版备用坐标出一屏，再异步去要浏览器定位：
   // 定位可能弹权限框卡住、也可能直接被拒，不该让整个大厅干等着。
-  await loadAddresses()
+  await Promise.all([loadAddresses(), loadNotebook()])
   const defaultAddress = addresses.value.find((item) => item.defaultAddress)
   if (defaultAddress) {
     activeAddressId.value = defaultAddress.id
@@ -1023,6 +1191,29 @@ onMounted(async () => {
 .section-card {
   margin-bottom: 16px;
 }
+
+.notebook-card { border-radius: 18px; }
+.notebook-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 18px; }
+.notebook-head h2 { margin: 6px 0 4px; font-size: 18px; }
+.notebook-head p { margin: 0; color: var(--pp-muted); font-size: 12px; }
+.notebook-kicker { color: var(--pp-primary); font-size: 12px; font-weight: 700; }
+.notebook-tools { display: flex; align-items: center; gap: 10px; }
+.notebook-tools .el-input { width: 210px; }
+.note-list { display: grid; min-height: 80px; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.note-list :deep(.el-empty) { grid-column: 1 / -1; padding: 10px 0; }
+.pet-note { min-width: 0; padding: 15px; border: 1px solid #e4eee6; border-radius: 15px; background: linear-gradient(150deg, #fbfdfb, #fff); }
+.pet-note-head { display: flex; align-items: center; gap: 10px; padding-bottom: 11px; border-bottom: 1px dashed #dce8de; }
+.pet-note-head > div { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; }
+.pet-note-head strong { overflow: hidden; font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
+.pet-note-head span { color: var(--pp-muted); font-size: 10px; }
+.note-avatar { flex: 0 0 auto; background: #dff0e3; color: var(--pp-primary); }
+.note-menu { border: 0; background: transparent; color: var(--pp-muted); cursor: pointer; font-weight: 700; letter-spacing: 1px; }
+.note-sections { display: flex; flex-direction: column; gap: 9px; padding-top: 11px; }
+.note-sections p { display: -webkit-box; overflow: hidden; margin: 0; color: #59665e; font-size: 12px; line-height: 1.6; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.note-sections p span { display: block; margin-bottom: 2px; color: #799182; font-size: 10px; font-weight: 700; }
+.note-pet-select { width: 100%; }
+.pet-option { display: flex; justify-content: space-between; gap: 16px; }
+.pet-option small { color: var(--pp-muted); }
 
 .alert-line {
   margin: 0 0 6px;
@@ -1167,6 +1358,10 @@ onMounted(async () => {
   .hero-pets { display: none; }
   .knowledge-strip { grid-template-columns: 1fr; }
   .knowledge-card { align-items: flex-start; }
+  .notebook-head { align-items: stretch; flex-direction: column; }
+  .notebook-tools { align-items: stretch; flex-direction: column; }
+  .notebook-tools .el-input { width: 100%; }
+  .note-list { grid-template-columns: 1fr; }
 
   .address-card {
     align-items: flex-start;

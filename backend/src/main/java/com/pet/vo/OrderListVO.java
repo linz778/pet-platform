@@ -32,6 +32,9 @@ public class OrderListVO {
      */
     private String petName;
 
+    /** 宠物物种，接单员照护手记选择宠物时用于辨认。 */
+    private String petSpecies;
+
     /** 宠物档案已被主人删除，前端据此加一个「档案已删除」标记 */
     private boolean petDeleted;
 

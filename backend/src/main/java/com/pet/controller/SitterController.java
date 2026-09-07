@@ -10,18 +10,21 @@ import com.pet.dto.SitterAddressSaveDTO;
 import com.pet.dto.SitterProfileSaveDTO;
 import com.pet.dto.SitterLocationDTO;
 import com.pet.dto.SitterOrderCancelDTO;
+import com.pet.dto.SitterPetNoteSaveDTO;
 import com.pet.dto.TrackSaveDTO;
 import com.pet.security.RequireRole;
 import com.pet.service.FulfillmentService;
 import com.pet.service.OrderService;
 import com.pet.service.SitterAddressService;
 import com.pet.service.SitterProfileService;
+import com.pet.service.SitterPetNoteService;
 import com.pet.vo.HallOrderVO;
 import com.pet.vo.OrderEvidenceVO;
 import com.pet.vo.OrderListVO;
 import com.pet.vo.SitterAddressVO;
 import com.pet.vo.SitterProfileVO;
 import com.pet.vo.SitterCancelResultVO;
+import com.pet.vo.SitterPetNoteVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -53,6 +56,7 @@ public class SitterController {
 
     private final SitterProfileService sitterProfileService;
     private final SitterAddressService sitterAddressService;
+    private final SitterPetNoteService sitterPetNoteService;
     private final OrderService orderService;
     private final FulfillmentService fulfillmentService;
 
@@ -103,6 +107,25 @@ public class SitterController {
     @DeleteMapping("/address/{id}")
     public Result<Void> deleteAddress(@PathVariable Long id) {
         sitterAddressService.delete(id);
+        return Result.success();
+    }
+
+    @Operation(summary = "我的宠物照护笔记", description = "只返回当前接单员为自己服务过的宠物保存的私人笔记")
+    @GetMapping("/pet-note")
+    public Result<List<SitterPetNoteVO>> petNotes() {
+        return Result.success(sitterPetNoteService.listMine());
+    }
+
+    @Operation(summary = "保存宠物照护笔记", description = "同一接单员与宠物只有一份笔记，重复保存即更新")
+    @PostMapping("/pet-note")
+    public Result<SitterPetNoteVO> savePetNote(@Valid @RequestBody SitterPetNoteSaveDTO dto) {
+        return Result.success(sitterPetNoteService.saveMine(dto));
+    }
+
+    @Operation(summary = "删除宠物照护笔记")
+    @DeleteMapping("/pet-note/{id}")
+    public Result<Void> deletePetNote(@PathVariable Long id) {
+        sitterPetNoteService.deleteMine(id);
         return Result.success();
     }
 
