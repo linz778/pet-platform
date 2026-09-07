@@ -1,10 +1,11 @@
 <template>
   <div class="page-container">
-    <el-card class="head-card">
+    <el-card class="head-card workbench-hero">
       <div class="head">
         <div class="head-text">
-          <h2 class="title">🧭 接单大厅</h2>
-          <p class="subtitle">按距离由近到远列出附近待接单的订单。抢单成功后资金仍由平台担保，服务验收通过才结算给你。</p>
+          <span class="hero-kicker">SITTER WORKBENCH</span>
+          <h2 class="title">今天也要用心照顾每一只小家伙</h2>
+          <p class="subtitle">附近订单、照护知识和宠物手记都放在一个工作台里，让每次服务更从容。</p>
         </div>
         <div class="head-side">
           <el-tag v-if="profile" :type="AUDIT_TAG[profile.auditStatus] ?? 'info'" effect="light">
@@ -13,7 +14,31 @@
           <el-button :disabled="!approved" @click="openProfileDialog">资质资料</el-button>
         </div>
       </div>
+      <div class="hero-pets" aria-hidden="true"><span>🐕</span><span>🐈</span><span>🐇</span></div>
     </el-card>
+
+    <section class="knowledge-strip">
+      <article class="knowledge-card daily-tip">
+        <div class="knowledge-icon">{{ currentKnowledge.icon }}</div>
+        <div class="knowledge-content">
+          <span class="knowledge-label">今日照护小常识 · {{ currentKnowledge.category }}</span>
+          <h3>{{ currentKnowledge.title }}</h3>
+          <p>{{ currentKnowledge.content }}</p>
+        </div>
+        <el-button link type="primary" @click="nextKnowledge">换一条 ↻</el-button>
+      </article>
+      <article class="knowledge-card service-check">
+        <div>
+          <span class="knowledge-label">接单前 30 秒检查</span>
+          <h3>看清宠物习性，再确认服务</h3>
+        </div>
+        <div class="check-chips">
+          <span>✓ 饮食禁忌</span>
+          <span>✓ 性格与应激</span>
+          <span>✓ 紧急联系人</span>
+        </div>
+      </article>
+    </section>
 
     <!-- 未过审就不渲染大厅：光把抢单按钮藏起来没用，后端 requireGrabable 一样会拒（1005） -->
     <el-card v-if="!loadingProfile && !approved" class="section-card">
@@ -318,6 +343,19 @@ const LOCATION_SOURCE_TEXT = { geo: '浏览器定位', address: '地址簿', pro
 // 与种子接单员、演示订单一致的坐标：定位不可用时用它兜底，大厅仍能检索到演示订单
 const DEFAULT_CENTER = { lng: 121.4737, lat: 31.2304 }
 const CATEGORY_EMOJI = { FEEDING: '🍚', GROOMING: '🛁', WALKING: '🦮', COMPANION: '🧸' }
+const PET_KNOWLEDGE = [
+  { icon: '🐈', category: '猫咪', title: '不要强行把躲藏的猫咪抱出来', content: '陌生人上门容易让猫咪紧张。先保持距离、降低音量，让它主动闻气味并熟悉你。' },
+  { icon: '🐕', category: '狗狗', title: '散步前先观察牵引装备', content: '检查胸背、项圈和牵引扣是否牢固，开门前再次确认，能避免兴奋冲跑造成意外。' },
+  { icon: '🥣', category: '喂养', title: '临时加餐也要先得到主人确认', content: '即使宠物表现得很想吃，也不要喂食未约定的零食，过敏和肠胃不适往往来自意外加餐。' },
+  { icon: '🛁', category: '洗护', title: '洗护前先用手背测试水温', content: '宠物适合的水温通常接近体温。避开眼睛和耳道，洗后及时擦干，减少着凉与应激。' },
+  { icon: '🩺', category: '观察', title: '精神状态比单次食量更值得留意', content: '记录精神、饮水、排泄和呼吸变化；若多项同时异常，应立即联系主人而不是自行处理。' }
+]
+const knowledgeIndex = ref(new Date().getDate() % PET_KNOWLEDGE.length)
+const currentKnowledge = computed(() => PET_KNOWLEDGE[knowledgeIndex.value])
+
+function nextKnowledge() {
+  knowledgeIndex.value = (knowledgeIndex.value + 1) % PET_KNOWLEDGE.length
+}
 
 const hasAmapKey = computed(() => !!import.meta.env.VITE_AMAP_KEY)
 // key 配了但无效 / 超配额 / 断网时 AmapView 会 emit error，此时退回纯列表模式，
@@ -891,6 +929,72 @@ onMounted(async () => {
   margin-bottom: 16px;
 }
 
+.workbench-hero {
+  position: relative;
+  overflow: hidden;
+  border: 0;
+  background:
+    radial-gradient(circle at 88% 20%, rgb(255 255 255 / 55%) 0 86px, transparent 87px),
+    linear-gradient(135deg, #eaf7ed 0%, #f8fbf2 55%, #fff7e9 100%);
+}
+
+.workbench-hero :deep(.el-card__body) { padding: 30px 34px; }
+.hero-kicker { color: var(--pp-primary); font-size: 11px; font-weight: 700; letter-spacing: 1.7px; }
+.workbench-hero .title { max-width: 680px; margin-top: 8px; font-size: clamp(22px, 2.4vw, 32px); line-height: 1.35; }
+.workbench-hero .subtitle { max-width: 720px; line-height: 1.7; }
+
+.hero-pets {
+  position: absolute;
+  right: 34px;
+  bottom: -7px;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  opacity: 0.16;
+  pointer-events: none;
+}
+
+.hero-pets span { font-size: 58px; }
+.hero-pets span:nth-child(2) { font-size: 72px; }
+
+.knowledge-strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.8fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.knowledge-card {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 22px;
+  border: 1px solid var(--pp-tint-2);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: var(--pp-shadow);
+}
+
+.daily-tip { background: linear-gradient(140deg, #fff 45%, #f4faf5); }
+.knowledge-icon {
+  display: grid;
+  flex: 0 0 54px;
+  height: 54px;
+  place-items: center;
+  border-radius: 16px;
+  background: #edf7ef;
+  font-size: 28px;
+}
+
+.knowledge-content { min-width: 0; flex: 1; }
+.knowledge-label { color: var(--pp-primary); font-size: 11px; font-weight: 700; letter-spacing: 0.5px; }
+.knowledge-card h3 { margin: 5px 0; font-size: 16px; }
+.knowledge-card p { margin: 0; color: var(--pp-muted); font-size: 12px; line-height: 1.65; }
+.service-check { align-items: flex-start; flex-direction: column; justify-content: center; background: linear-gradient(145deg, #fffaf1, #fff); }
+.check-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.check-chips span { padding: 5px 9px; border-radius: 999px; background: #fff; color: #6d775f; font-size: 11px; box-shadow: 0 3px 12px rgb(95 114 93 / 8%); }
+
 .head {
   display: flex;
   align-items: center;
@@ -1059,6 +1163,11 @@ onMounted(async () => {
 }
 
 @media (max-width: 640px) {
+  .workbench-hero :deep(.el-card__body) { padding: 24px 20px; }
+  .hero-pets { display: none; }
+  .knowledge-strip { grid-template-columns: 1fr; }
+  .knowledge-card { align-items: flex-start; }
+
   .address-card {
     align-items: flex-start;
     flex-direction: column;
