@@ -103,6 +103,11 @@ export function saveOrderEvidence(orderId, data) {
   return request.post(`/sitter/order/${orderId}/evidence`, data)
 }
 
+/** 为悬赏任务追加一张完成证明。 */
+export function saveTaskEvidence(orderId, data) {
+  return request.post(`/sitter/order/${orderId}/task-proof`, data)
+}
+
 /**
  * 上传散步轨迹。points 为 [{lat,lng,time}]，time 缺省由服务端补当前时间；
  * 空数组 400，同一单可多次上传（分段遛）。

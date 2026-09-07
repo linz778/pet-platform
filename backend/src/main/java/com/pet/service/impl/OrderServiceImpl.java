@@ -549,7 +549,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         vo.setServiceEnd(o.getServiceEnd());
         vo.setAmount(o.getAmount());
         vo.setStatus(o.getStatus());
-        vo.setStatusText(OrderStatus.descOf(o.getStatus()));
+        vo.setStatusText(Integer.valueOf(1).equals(o.getOrderType()) && o.getStatus() == OrderStatus.PENDING_ACCEPT.getCode()
+                ? "待平台审核" : OrderStatus.descOf(o.getStatus()));
         vo.setPayStatus(o.getPayStatus());
         vo.setPayStatusText(PayStatus.descOf(o.getPayStatus()));
         vo.setCreateTime(o.getCreateTime());

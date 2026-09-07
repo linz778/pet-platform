@@ -170,13 +170,18 @@
             <header class="hall-top">
               <div class="hall-title">
                 <span class="hall-emoji">{{ CATEGORY_EMOJI[o.categoryCode] ?? '🐾' }}</span>
-                <span class="hall-name">{{ o.categoryName || '未知服务' }}</span>
+                <span class="hall-name">{{ o.taskTitle || o.categoryName || '未知服务' }}</span>
+                <el-tag v-if="o.orderType === 1" size="small" effect="dark" type="warning">悬赏</el-tag>
                 <el-tag v-if="o.unit" size="small" effect="plain" type="info">/ {{ o.unit }}</el-tag>
               </div>
               <span class="hall-distance">📍 {{ distanceText(o.distanceKm) || '距离未知' }}</span>
             </header>
 
             <div class="hall-body">
+              <div v-if="o.taskDescription" class="hall-line">
+                <span class="line-label">任务</span>
+                <span>{{ o.taskDescription }}</span>
+              </div>
               <div class="hall-line">
                 <span class="line-label">宠物</span>
                 <span>{{ o.petName || '未知' }}<em v-if="o.petSpecies" class="muted"> · {{ o.petSpecies }}</em></span>
@@ -417,7 +422,7 @@ const ADDRESS_LABELS = ['家', '学校', '公司', '其他']
 const LOCATION_SOURCE_TEXT = { geo: '浏览器定位', address: '地址簿', profile: '备用位置', default: '演示默认位置' }
 // 与种子接单员、演示订单一致的坐标：定位不可用时用它兜底，大厅仍能检索到演示订单
 const DEFAULT_CENTER = { lng: 121.4737, lat: 31.2304 }
-const CATEGORY_EMOJI = { FEEDING: '🍚', GROOMING: '🛁', WALKING: '🦮', COMPANION: '🧸' }
+const CATEGORY_EMOJI = { FEEDING: '🍚', GROOMING: '🛁', WALKING: '🦮', COMPANION: '🧸', BOUNTY: '🏆' }
 const PET_KNOWLEDGE = [
   { icon: '🐈', category: '猫咪', title: '不要强行把躲藏的猫咪抱出来', content: '陌生人上门容易让猫咪紧张。先保持距离、降低音量，让它主动闻气味并熟悉你。' },
   { icon: '🐕', category: '狗狗', title: '散步前先观察牵引装备', content: '检查胸背、项圈和牵引扣是否牢固，开门前再次确认，能避免兴奋冲跑造成意外。' },

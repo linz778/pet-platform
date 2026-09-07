@@ -44,7 +44,7 @@
           <div class="order-body">
             <div class="order-line">
               <span class="line-label">服务</span>
-              <span>{{ o.categoryName || '未知服务' }}<em v-if="o.unit" class="unit">/ {{ o.unit }}</em></span>
+              <span>{{ o.taskTitle || o.categoryName || '未知服务' }}<em v-if="o.unit" class="unit">/ {{ o.unit }}</em></span>
             </div>
             <div class="order-line">
               <span class="line-label">宠物</span>
@@ -107,7 +107,10 @@
               </el-tag>
               <span class="pay-state">{{ detail.payStatusText }}</span>
             </el-descriptions-item>
-            <el-descriptions-item label="服务">{{ detail.categoryName || '未知服务' }}</el-descriptions-item>
+            <el-descriptions-item :label="isBounty ? '悬赏任务' : '服务'">
+              {{ detail.taskTitle || detail.categoryName || '未知服务' }}
+            </el-descriptions-item>
+            <el-descriptions-item v-if="isBounty" label="任务要求">{{ detail.taskDescription }}</el-descriptions-item>
             <el-descriptions-item label="宠物">
               {{ detail.petName || '未知宠物' }}
               <span v-if="detail.petSpecies" class="pay-state">{{ detail.petSpecies }} · {{ detail.petBreed || '未填品种' }}</span>
@@ -128,6 +131,15 @@
               {{ detail.cancelReason }}
             </el-descriptions-item>
           </el-descriptions>
+
+          <el-alert
+            v-if="isBounty && detail.taskReviewRemark"
+            class="wait-alert"
+            :type="detail.status === 3 ? 'error' : 'info'"
+            :closable="false"
+            show-icon
+            :title="`平台审核说明：${detail.taskReviewRemark}`"
+          />
 
           <!-- 只有「已接单 / 服务中」还有事可做，其余状态这里整块不渲染 -->
           <template v-if="detail.status === 2 || detail.status === 3">
@@ -165,7 +177,7 @@
               </p>
             </div>
 
-            <div v-if="detail.status === 3" class="step">
+            <div v-if="detail.status === 3 && !isBounty" class="step">
               <div class="step-head">
                 <span class="step-title">② 按清单逐项拍照存证</span>
                 <el-tag size="small" effect="plain" :type="missingItems.length === 0 ? 'success' : 'warning'">
@@ -197,7 +209,23 @@
               <p class="step-tip">照片上传成功后自动存证；同一项重拍会覆盖旧照片，不会多出一条记录。</p>
             </div>
 
-            <div v-if="detail.status === 3 && isWalking" class="step">
+            <div v-if="detail.status === 3 && isBounty" class="step">
+              <div class="step-head">
+                <span class="step-title">② 上传任务完成证明</span>
+                <el-tag size="small" effect="plain" :type="taskProofCount ? 'success' : 'warning'">
+                  {{ taskProofCount }} 张
+                </el-tag>
+              </div>
+              <ImageUpload
+                :model-value="taskPhotos"
+                biz-type="evidence"
+                :limit="6"
+                @update:model-value="onTaskPhotos"
+              />
+              <p class="step-tip">最多 6 张，至少上传 1 张；提交后由管理员审核，照片应能清楚证明任务已经完成。</p>
+            </div>
+
+            <div v-if="detail.status === 3 && isWalking && !isBounty" class="step">
               <div class="step-head">
                 <span class="step-title">③ 记录散步轨迹</span>
                 <el-tag size="small" effect="plain" :type="tracking ? 'warning' : 'info'">
@@ -221,21 +249,22 @@
 
             <div v-if="detail.status === 3" class="step">
               <div class="step-head">
-                <span class="step-title">{{ isWalking ? '④' : '③' }} 标记服务完成</span>
+                <span class="step-title">{{ isBounty ? '③' : isWalking ? '④' : '③' }} 标记服务完成</span>
                 <el-button
                   type="success"
                   size="small"
-                  :disabled="missingItems.length > 0"
+                  :disabled="!canFinish"
                   :loading="finishing"
                   @click="onFinish"
                 >
                   完成服务
                 </el-button>
               </div>
-              <p v-if="missingItems.length > 0" class="step-tip warn">
+              <p v-if="!isBounty && missingItems.length > 0" class="step-tip warn">
                 还差 {{ missingItems.length }} 项没存证：{{ missingItems.join('、') }}。
                 后端会拦（2008），补齐照片后这个按钮才可用。
               </p>
+              <p v-else-if="isBounty" class="step-tip">确认后任务转为「待平台审核」，审核通过才会结算到手金额。</p>
               <p v-else class="step-tip">清单已全部存证。确认后订单转「待验收」，用户验收通过才会结算到手金额。</p>
             </div>
           </template>
@@ -246,8 +275,8 @@
             type="warning"
             :closable="false"
             show-icon
-            title="服务已完成，等待用户验收"
-            description="验收通过后到手金额才会进入收益钱包；用户对服务有异议时会由平台介入。"
+            :title="isBounty ? '任务证明已提交，等待平台审核' : '服务已完成，等待用户验收'"
+            :description="isBounty ? '管理员审核照片通过后，到手金额会进入收益钱包；驳回后可补充证明重新提交。' : '验收通过后到手金额才会进入收益钱包；用户对服务有异议时会由平台介入。'"
           />
 
           <el-alert
@@ -299,7 +328,7 @@
               到达并定位打卡
             </el-timeline-item>
             <el-timeline-item v-if="detail.finishTime" :timestamp="detail.finishTime" type="primary">
-              服务完成，等待用户验收
+              {{ isBounty ? '任务完成，等待平台审核' : '服务完成，等待用户验收' }}
             </el-timeline-item>
             <el-timeline-item v-if="arbitration" :timestamp="arbitration.createTime" type="danger">
               用户提交服务申诉，平台介入审核
@@ -308,7 +337,7 @@
               {{ arbitration.approved ? '平台裁定退款' : '平台驳回申诉' }}
             </el-timeline-item>
             <el-timeline-item v-if="detail.acceptTime" :timestamp="detail.acceptTime" type="success">
-              验收通过，已结算到我的钱包
+              {{ isBounty ? '平台审核通过，已结算到我的钱包' : '验收通过，已结算到我的钱包' }}
             </el-timeline-item>
             <el-timeline-item v-if="detail.cancelTime" :timestamp="detail.cancelTime" type="danger">
               订单已取消
@@ -338,7 +367,8 @@ import {
   getMySitterProfile,
   pageMyTakenOrders,
   saveOrderEvidence,
-  saveOrderTrack
+  saveOrderTrack,
+  saveTaskEvidence
 } from '@/api/sitter'
 import EvidenceList from '@/components/EvidenceList.vue'
 import ImageUpload from '@/components/ImageUpload.vue'
@@ -369,6 +399,7 @@ const category = ref(null)
 const checklist = ref([])
 // 清单项 → 已存证的照片地址，直接绑到每一行的 ImageUpload 上
 const photos = reactive({})
+const taskPhotos = ref([])
 
 const checkingIn = ref(false)
 const savingItem = ref('')
@@ -390,10 +421,13 @@ const creditColor = computed(() => {
 
 // 订单详情里没有 categoryCode，靠服务类别详情判断是不是户外散步（只有它需要轨迹）
 const isWalking = computed(() => category.value?.code === 'WALKING')
+const isBounty = computed(() => detail.value?.orderType === 1)
+const taskProofCount = computed(() => evidences.value.filter((e) => e.type === 4).length)
 const doneItems = computed(() =>
   evidences.value.filter((e) => e.type === 2 && e.checkItem).map((e) => e.checkItem)
 )
 const missingItems = computed(() => checklist.value.filter((item) => !doneItems.value.includes(item)))
+const canFinish = computed(() => isBounty.value ? taskProofCount.value > 0 : missingItems.value.length === 0)
 
 function isDone(item) {
   return doneItems.value.includes(item)
@@ -456,6 +490,7 @@ function resetDrawer() {
   category.value = null
   checklist.value = []
   trackPoints.value = []
+  taskPhotos.value = []
   Object.keys(photos).forEach((k) => delete photos[k])
 }
 
@@ -480,6 +515,24 @@ function syncPhotos() {
     .forEach((e) => {
       photos[e.checkItem] = e.imageUrl
     })
+  taskPhotos.value = evidences.value.filter((e) => e.type === 4 && e.imageUrl).map((e) => e.imageUrl)
+}
+
+async function onTaskPhotos(urls) {
+  if (!detail.value || !Array.isArray(urls)) return
+  const saved = new Set(evidences.value.filter((e) => e.type === 4).map((e) => e.imageUrl))
+  const added = urls.filter((url) => url && !saved.has(url))
+  if (added.length === 0) {
+    taskPhotos.value = [...saved]
+    return
+  }
+  try {
+    await Promise.all(added.map((imageUrl) => saveTaskEvidence(detail.value.id, { imageUrl })))
+    ElMessage.success(`已保存 ${added.length} 张任务证明`)
+    await loadFulfillment(detail.value)
+  } catch {
+    taskPhotos.value = [...saved]
+  }
 }
 
 /** 动作成功后刷新抽屉与列表：状态、打卡时间、清单进度都是服务端算的，本地猜会不一致 */
@@ -668,7 +721,9 @@ async function uploadTrack() {
 async function onFinish() {
   try {
     await ElMessageBox.confirm(
-      '确认服务已完成？订单将转为「待验收」，等用户验收通过后到手金额才结算进收益钱包。',
+      isBounty.value
+        ? '确认任务已完成？提交后由管理员审核证明照片，审核通过才会结算。'
+        : '确认服务已完成？订单将转为「待验收」，等用户验收通过后到手金额才结算进收益钱包。',
       '完成服务',
       { type: 'warning', confirmButtonText: '确认完成', cancelButtonText: '再检查一下' }
     )
@@ -678,7 +733,7 @@ async function onFinish() {
   finishing.value = true
   try {
     await finishOrder(detail.value.id)
-    ElMessage.success('已提交，等待用户验收')
+    ElMessage.success(isBounty.value ? '任务证明已提交，等待平台审核' : '已提交，等待用户验收')
     await refresh()
   } catch {
     // 清单缺项（2008）的提示语里列了缺哪几项

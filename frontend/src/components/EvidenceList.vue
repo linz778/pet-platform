@@ -14,9 +14,9 @@
         <span v-if="e.remark" class="ev-muted">（{{ e.remark }}）</span>
       </div>
 
-      <!-- 清单存证：一项一张照片，点开看大图 -->
+      <!-- 清单存证 / 悬赏任务证明：点开看大图 -->
       <el-image
-        v-else-if="e.type === 2 && e.imageUrl"
+        v-else-if="(e.type === 2 || e.type === 4) && e.imageUrl"
         class="ev-photo"
         :src="e.imageUrl"
         :preview-src-list="[e.imageUrl]"
@@ -41,7 +41,7 @@ defineProps({
   evidences: { type: Array, default: () => [] }
 })
 
-const TYPE_ICON = { 1: '📍', 2: '📷', 3: '🦮' }
+const TYPE_ICON = { 1: '📍', 2: '📷', 3: '🦮', 4: '🏆' }
 
 function titleOf(e) {
   if (e.type === 2) return e.checkItem ? `作业清单 · ${e.checkItem}` : '作业清单存证'
