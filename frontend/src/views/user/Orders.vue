@@ -119,7 +119,7 @@
               支付成功，资金进入平台担保
             </el-timeline-item>
             <el-timeline-item v-if="detail.takenTime" :timestamp="detail.takenTime" type="primary">
-              接单员已接单
+              接单员<span v-if="detail.sitterName" class="sitter-name">{{ detail.sitterName }}</span>已接单
             </el-timeline-item>
             <el-timeline-item v-if="detail.checkinTime" :timestamp="detail.checkinTime" type="primary">
               接单员到达并打卡
@@ -422,6 +422,12 @@ onMounted(load)
   margin-left: 8px;
   font-size: 12px;
   color: var(--pp-muted);
+}
+
+.sitter-name {
+  margin: 0 6px;
+  font-weight: 600;
+  color: var(--pp-primary);
 }
 
 .drawer-actions {

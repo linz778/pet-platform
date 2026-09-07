@@ -164,6 +164,13 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         vo.setCancelTime(order.getCancelTime());
         vo.setCancelReason(order.getCancelReason());
 
+        if (order.getSitterId() != null) {
+            User sitter = userMapper.selectById(order.getSitterId());
+            if (sitter != null) {
+                vo.setSitterName(displayName(sitter));
+            }
+        }
+
         Pet pet = pets.get(order.getPetId());
         if (pet != null) {
             vo.setPetSpecies(pet.getSpecies());
@@ -547,7 +554,11 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             return Map.of();
         }
         return userMapper.selectList(Wrappers.<User>lambdaQuery().in(User::getId, ids)).stream()
-                .collect(Collectors.toMap(User::getId, u -> StrUtil.blankToDefault(u.getNickname(), u.getUsername())));
+                .collect(Collectors.toMap(User::getId, this::displayName));
+    }
+
+    private String displayName(User user) {
+        return StrUtil.blankToDefault(user.getNickname(), user.getUsername());
     }
 
     private Map<Long, ServiceCategory> loadCategories(List<Order> orders) {
