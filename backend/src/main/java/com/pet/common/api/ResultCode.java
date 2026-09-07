@@ -24,6 +24,7 @@ public enum ResultCode {
     USER_ADDRESS_NOT_FOUND(1009, "地址不存在"),
     SITTER_PET_NOT_SERVED(1010, "只能为自己接单服务过的宠物建立笔记"),
     SITTER_PET_NOTE_NOT_FOUND(1011, "宠物照护笔记不存在"),
+    SITTER_AUDIT_STATUS_ILLEGAL(1012, "该资质申请已审核，请勿重复操作"),
 
     // 订单 / 抢单 / 履约 2xxx
     ORDER_NOT_FOUND(2001, "订单不存在"),

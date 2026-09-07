@@ -16,7 +16,7 @@ public interface AdminDashboardMapper {
               (SELECT COUNT(*) FROM t_user WHERE role = 'USER' AND deleted = 0) AS owner_count,
               (SELECT COUNT(*) FROM t_sitter_profile WHERE audit_status = 1 AND deleted = 0) AS approved_sitter_count,
               (SELECT COUNT(*) FROM t_sitter_profile WHERE audit_status = 1 AND available = 1 AND deleted = 0) AS active_sitter_count,
-              (SELECT COUNT(*) FROM t_sitter_profile WHERE audit_status = 0 AND deleted = 0) AS pending_audit_count,
+              (SELECT COUNT(*) FROM t_sitter_profile WHERE audit_status = 0 AND real_name IS NOT NULL AND deleted = 0) AS pending_audit_count,
               (SELECT COUNT(*) FROM t_arbitration WHERE status = 0 AND deleted = 0) AS pending_arbitration_count,
               COUNT(*) AS total_order_count,
               COALESCE(SUM(CASE WHEN DATE(create_time) = CURDATE() THEN 1 ELSE 0 END), 0) AS today_order_count,
