@@ -50,7 +50,10 @@ public enum ResultCode {
     FILE_EMPTY(4001, "上传文件不能为空"),
     FILE_TYPE_NOT_ALLOWED(4002, "仅支持 jpg/jpeg/png/webp 格式的图片"),
     FILE_SIZE_EXCEEDED(4003, "文件大小超出限制"),
-    FILE_UPLOAD_FAILED(4004, "文件上传失败，请稍后重试");
+    FILE_UPLOAD_FAILED(4004, "文件上传失败，请稍后重试"),
+
+    // 社区 5xxx
+    COMMUNITY_POST_NOT_FOUND(5001, "社区动态不存在");
 
     private final int code;
     private final String message;
