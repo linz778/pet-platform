@@ -68,6 +68,22 @@ public interface OrderMapper extends BaseMapper<Order> {
     int markCancelledBySitter(@Param("id") Long id, @Param("sitterId") Long sitterId,
                               @Param("reason") String reason);
 
+    /** 用户对待验收订单发起申诉：资金继续冻结，订单进入仲裁中。 */
+    @Update("UPDATE t_order SET status = 7, update_time = NOW() "
+            + "WHERE id = #{id} AND user_id = #{userId} AND status = 4 AND pay_status = 1 AND deleted = 0")
+    int markArbitrating(@Param("id") Long id, @Param("userId") Long userId);
+
+    /** 申诉驳回：资金仍在担保中，订单回到待验收，用户仍可正常验收结算。 */
+    @Update("UPDATE t_order SET status = 4, update_time = NOW() "
+            + "WHERE id = #{id} AND status = 7 AND pay_status = 1 AND deleted = 0")
+    int markArbitrationRejected(@Param("id") Long id);
+
+    /** 申诉通过：订单关闭并把支付状态改为已退款；只有返回 1 才允许实际退钱包。 */
+    @Update("UPDATE t_order SET status = 6, pay_status = 3, cancel_time = NOW(), "
+            + "cancel_reason = #{reason}, update_time = NOW() "
+            + "WHERE id = #{id} AND status = 7 AND pay_status = 1 AND deleted = 0")
+    int markArbitrationRefunded(@Param("id") Long id, @Param("reason") String reason);
+
     /** Redis GEO 索引懒重建用：取出全部待接单订单的坐标（仅填充 id/addressLng/addressLat）。 */
     @Select("SELECT id, address_lng, address_lat FROM t_order WHERE status = 1 AND deleted = 0")
     List<Order> selectPendingForGeoRebuild();

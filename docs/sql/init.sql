@@ -169,7 +169,7 @@ CREATE TABLE t_order (
     amount           DECIMAL(10,2) NOT NULL DEFAULT 0 COMMENT '订单金额',
     commission       DECIMAL(10,2) NOT NULL DEFAULT 0 COMMENT '平台抽成',
     sitter_income    DECIMAL(10,2) NOT NULL DEFAULT 0 COMMENT '接单员佣金',
-    status           TINYINT     NOT NULL DEFAULT 0 COMMENT '0=待支付 1=待接单 2=已接单 3=服务中 4=待验收 5=已完成 6=已取消 7=仲裁中(本期不触发)',
+    status           TINYINT     NOT NULL DEFAULT 0 COMMENT '0=待支付 1=待接单 2=已接单 3=服务中 4=待验收 5=已完成 6=已取消 7=仲裁中',
     pay_status       TINYINT     NOT NULL DEFAULT 0 COMMENT '0=未支付 1=已支付(平台担保) 2=已结算 3=已退款',
     pay_time         DATETIME             DEFAULT NULL COMMENT '支付时间',
     taken_time       DATETIME             DEFAULT NULL COMMENT '被接单时间',

@@ -36,6 +36,9 @@ public enum ResultCode {
     PET_NOT_FOUND(2010, "宠物档案不存在"),
     CATEGORY_OFF_SHELF(2011, "该服务已下架"),
     CATEGORY_NOT_FOUND(2012, "服务类别不存在"),
+    ARBITRATION_NOT_FOUND(2013, "申诉记录不存在"),
+    ARBITRATION_ALREADY_EXISTS(2014, "该订单已提交过申诉"),
+    ARBITRATION_ALREADY_DECIDED(2015, "该申诉已处理，请勿重复操作"),
 
     // 资金 3xxx
     WALLET_NOT_FOUND(3001, "钱包不存在"),
