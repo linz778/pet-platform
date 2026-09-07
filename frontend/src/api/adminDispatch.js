@@ -11,3 +11,11 @@ export function listAssignableSitters(orderId) {
 export function assignOrder(orderId, sitterId) {
   return request.post(`/admin/dispatch/${orderId}/assign/${sitterId}`)
 }
+
+export function pageBountyTasks(params) {
+  return request.get('/admin/dispatch/bounty/page', { params })
+}
+
+export function reviewBountyTask(orderId, data) {
+  return request.post(`/admin/dispatch/bounty/${orderId}/review`, data)
+}

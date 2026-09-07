@@ -6,6 +6,7 @@
         <el-menu-item index="/admin/dashboard">数据看板</el-menu-item>
         <el-menu-item index="/admin/audit">资质审核</el-menu-item>
         <el-menu-item index="/admin/dispatch">订单调度</el-menu-item>
+        <el-menu-item index="/admin/bounty-review">悬赏审核</el-menu-item>
         <el-menu-item index="/admin/arbitration">纠纷仲裁</el-menu-item>
         <el-menu-item index="/admin/config">服务规则配置</el-menu-item>
       </el-menu>

@@ -41,6 +41,7 @@ const routes = [
       { path: 'dashboard', name: 'admin-dashboard', component: () => import('@/views/admin/Dashboard.vue'), meta: { roles: ['ADMIN'] } },
       { path: 'audit', name: 'admin-audit', component: () => import('@/views/admin/Audit.vue'), meta: { roles: ['ADMIN'] } },
       { path: 'dispatch', name: 'admin-dispatch', component: () => import('@/views/admin/Dispatch.vue'), meta: { roles: ['ADMIN'] } },
+      { path: 'bounty-review', name: 'admin-bounty-review', component: () => import('@/views/admin/BountyReview.vue'), meta: { roles: ['ADMIN'], title: '悬赏任务审核' } },
       { path: 'arbitration', name: 'admin-arbitration', component: () => import('@/views/admin/Arbitration.vue'), meta: { roles: ['ADMIN'] } },
       { path: 'config', name: 'admin-config', component: () => import('@/views/admin/Config.vue'), meta: { roles: ['ADMIN'] } }
     ]
