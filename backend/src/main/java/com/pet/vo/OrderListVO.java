@@ -46,6 +46,9 @@ public class OrderListVO {
      */
     private String ownerNickname;
 
+    /** 已接单人员的公开显示名；管理端列表与三方订单详情使用。 */
+    private String sitterName;
+
     private String serviceAddress;
 
     private LocalDateTime serviceStart;

@@ -12,6 +12,9 @@ import com.pet.vo.HallOrderVO;
 import com.pet.vo.OrderDetailVO;
 import com.pet.vo.OrderListVO;
 import com.pet.vo.SitterCancelResultVO;
+import com.pet.vo.SitterDispatchVO;
+
+import java.util.List;
 
 public interface OrderService extends IService<Order> {
 
@@ -64,6 +67,15 @@ public interface OrderService extends IService<Order> {
 
     /** 当前登录接单员抢到的订单分页，按 id 倒序；status 为空表示全部。 */
     PageResult<OrderListVO> pageTaken(OrderQuery query);
+
+    /** 管理端查看全部订单，包含下单用户、接单员与平台结算金额。 */
+    PageResult<OrderListVO> pageAll(OrderQuery query);
+
+    /** 返回当前待接单订单可指派的已认证接单员，按距离由近到远排列。 */
+    List<SitterDispatchVO> listAssignableSitters(Long orderId);
+
+    /** 管理员人工指派；与接单员抢单共用同一把锁和条件更新。 */
+    void assign(Long orderId, Long sitterId);
 
     /**
      * 接单员取消尚未开始的已接订单。原因必填，已接单满 30 分钟后取消扣 5 分；

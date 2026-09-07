@@ -9,6 +9,7 @@ import com.pet.common.api.PageResult;
 import com.pet.common.api.ResultCode;
 import com.pet.common.enums.OrderStatus;
 import com.pet.common.enums.PayStatus;
+import com.pet.common.enums.AuditStatus;
 import com.pet.common.exception.BusinessException;
 import com.pet.common.geo.OrderGeoIndex;
 import com.pet.common.lock.DistributedLock;
@@ -21,6 +22,7 @@ import com.pet.dto.SitterOrderCancelDTO;
 import com.pet.entity.Order;
 import com.pet.entity.Pet;
 import com.pet.entity.ServiceCategory;
+import com.pet.entity.SitterProfile;
 import com.pet.entity.User;
 import com.pet.mapper.OrderMapper;
 import com.pet.mapper.PetMapper;
@@ -36,6 +38,7 @@ import com.pet.vo.OrderDetailVO;
 import com.pet.vo.OrderListVO;
 import com.pet.vo.PricePreviewVO;
 import com.pet.vo.SitterCancelResultVO;
+import com.pet.vo.SitterDispatchVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -296,6 +299,61 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
     }
 
     @Override
+    public PageResult<OrderListVO> pageAll(OrderQuery query) {
+        Page<Order> page = page(query.toPage(), Wrappers.<Order>lambdaQuery()
+                .eq(query.getStatus() != null, Order::getStatus, query.getStatus())
+                .orderByDesc(Order::getId));
+        List<OrderListVO> records = toListVOs(page.getRecords(), loadNicknames(page.getRecords()), true);
+        Map<Long, String> sitterNames = loadDisplayNames(page.getRecords().stream()
+                .map(Order::getSitterId).filter(Objects::nonNull).collect(Collectors.toSet()));
+        for (int i = 0; i < records.size(); i++) {
+            records.get(i).setSitterName(sitterNames.get(page.getRecords().get(i).getSitterId()));
+        }
+        return new PageResult<>(records, page.getTotal(), page.getCurrent(), page.getSize());
+    }
+
+    @Override
+    public List<SitterDispatchVO> listAssignableSitters(Long orderId) {
+        Order order = getById(orderId);
+        if (order == null) {
+            throw new BusinessException(ResultCode.ORDER_NOT_FOUND);
+        }
+        if (!Integer.valueOf(OrderStatus.PENDING.getCode()).equals(order.getStatus())) {
+            throw new BusinessException(ResultCode.ORDER_STATUS_ILLEGAL);
+        }
+        List<SitterProfile> profiles = sitterProfileService.list(Wrappers.<SitterProfile>lambdaQuery()
+                .eq(SitterProfile::getAuditStatus, AuditStatus.APPROVED.getCode())
+                .eq(SitterProfile::getAvailable, 1));
+        Map<Long, User> users = loadUsers(profiles.stream().map(SitterProfile::getUserId).collect(Collectors.toSet()));
+        return profiles.stream()
+                .filter(p -> {
+                    User user = users.get(p.getUserId());
+                    return user != null && "SITTER".equals(user.getRole()) && Integer.valueOf(1).equals(user.getStatus());
+                })
+                .map(p -> toDispatchVO(p, users.get(p.getUserId()), order))
+                .sorted(Comparator.comparing(SitterDispatchVO::getDistanceKm,
+                        Comparator.nullsLast(Comparator.naturalOrder())))
+                .toList();
+    }
+
+    @Override
+    public void assign(Long orderId, Long sitterId) {
+        sitterProfileService.requireGrabable(sitterId);
+        User sitter = userMapper.selectById(sitterId);
+        if (sitter == null || !"SITTER".equals(sitter.getRole())) {
+            throw new BusinessException(ResultCode.USER_NOT_FOUND);
+        }
+        if (!Integer.valueOf(1).equals(sitter.getStatus())) {
+            throw new BusinessException(ResultCode.ACCOUNT_DISABLED);
+        }
+        Boolean assigned = lock.tryLockAndRun(GRAB_LOCK_PREFIX + orderId,
+                GRAB_LOCK_WAIT_SECONDS, GRAB_LOCK_LEASE_SECONDS, () -> doGrab(orderId, sitterId));
+        if (assigned == null) {
+            throw new BusinessException(ResultCode.ORDER_ALREADY_TAKEN);
+        }
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public SitterCancelResultVO cancelBySitter(Long orderId, SitterOrderCancelDTO dto) {
         Long sitterId = UserContext.userId();
@@ -551,11 +609,35 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
     /** 批量取下单用户昵称；昵称为空时退回用户名，免得列表里出现一片空白。 */
     private Map<Long, String> loadNicknames(List<Order> orders) {
         Set<Long> ids = orders.stream().map(Order::getUserId).filter(Objects::nonNull).collect(Collectors.toSet());
+        return loadDisplayNames(ids);
+    }
+
+    private Map<Long, String> loadDisplayNames(Set<Long> ids) {
+        return loadUsers(ids).values().stream().collect(Collectors.toMap(User::getId, this::displayName));
+    }
+
+    private Map<Long, User> loadUsers(Set<Long> ids) {
         if (ids.isEmpty()) {
             return Map.of();
         }
-        return userMapper.selectList(Wrappers.<User>lambdaQuery().in(User::getId, ids)).stream()
-                .collect(Collectors.toMap(User::getId, this::displayName));
+        return userMapper.selectBatchIds(ids).stream().collect(Collectors.toMap(User::getId, Function.identity()));
+    }
+
+    private SitterDispatchVO toDispatchVO(SitterProfile profile, User user, Order order) {
+        SitterDispatchVO vo = new SitterDispatchVO();
+        vo.setUserId(profile.getUserId());
+        vo.setDisplayName(displayName(user));
+        vo.setRealName(profile.getRealName());
+        vo.setCreditLevel(profile.getCreditLevel());
+        vo.setCreditScore(profile.getCreditScore() == null ? 100 : profile.getCreditScore());
+        if (profile.getCurrentLat() != null && profile.getCurrentLng() != null
+                && order.getAddressLat() != null && order.getAddressLng() != null) {
+            double meters = GeoUtil.distanceMeters(profile.getCurrentLat().doubleValue(),
+                    profile.getCurrentLng().doubleValue(), order.getAddressLat().doubleValue(),
+                    order.getAddressLng().doubleValue());
+            vo.setDistanceKm(BigDecimal.valueOf(meters / 1000).setScale(2, RoundingMode.HALF_UP));
+        }
+        return vo;
     }
 
     private String displayName(User user) {

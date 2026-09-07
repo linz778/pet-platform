@@ -6,7 +6,9 @@ import com.pet.common.exception.BusinessException;
 import com.pet.common.geo.OrderGeoIndex;
 import com.pet.common.lock.DistributedLock;
 import com.pet.entity.Order;
+import com.pet.entity.User;
 import com.pet.mapper.OrderMapper;
+import com.pet.mapper.UserMapper;
 import com.pet.security.LoginUser;
 import com.pet.security.UserContext;
 import com.pet.service.SitterProfileService;
@@ -60,6 +62,9 @@ class OrderGrabConcurrencyTest {
     private OrderMapper orderMapper;
 
     @Mock
+    private UserMapper userMapper;
+
+    @Mock
     private SitterProfileService sitterProfileService;
 
     @Mock
@@ -95,7 +100,7 @@ class OrderGrabConcurrencyTest {
     /** 前五个依赖在抢单路径上用不到，全传 null；用得到的三个才给 mock。 */
     private OrderServiceImpl newService(DistributedLock grabLock) {
         OrderServiceImpl service = new OrderServiceImpl(
-                null, null, null, null, null, sitterProfileService, geoIndex, grabLock);
+                null, null, userMapper, null, null, sitterProfileService, geoIndex, grabLock);
         // baseMapper 是 ServiceImpl 的父类字段，@InjectMocks 注不进去，只能反射塞
         ReflectionTestUtils.setField(service, "baseMapper", orderMapper);
         return service;
@@ -204,6 +209,29 @@ class OrderGrabConcurrencyTest {
         verify(lock).tryLockAndRun(eq("order:grab:" + ORDER_ID), anyLong(), anyLong(), any());
         verify(geoIndex).remove(ORDER_ID);
         assertThat(winner.get()).isEqualTo(100L);
+    }
+
+    @Test
+    @DisplayName("管理员人工派单复用抢单锁和条件更新")
+    void adminAssignUsesGuardedGrabPath() {
+        User sitter = new User();
+        sitter.setId(100L);
+        sitter.setRole("SITTER");
+        sitter.setStatus(1);
+        when(userMapper.selectById(100L)).thenReturn(sitter);
+        when(lock.tryLockAndRun(anyString(), anyLong(), anyLong(), any()))
+                .thenAnswer(invocation -> ((Supplier<?>) invocation.getArgument(3)).get());
+        Order pending = new Order();
+        pending.setId(ORDER_ID);
+        pending.setStatus(OrderStatus.PENDING.getCode());
+        when(orderMapper.selectById(ORDER_ID)).thenReturn(pending);
+        when(orderMapper.markTaken(ORDER_ID, 100L)).thenReturn(1);
+
+        newService(lock).assign(ORDER_ID, 100L);
+
+        verify(sitterProfileService).requireGrabable(100L);
+        verify(lock).tryLockAndRun(eq("order:grab:" + ORDER_ID), anyLong(), anyLong(), any());
+        verify(geoIndex).remove(ORDER_ID);
     }
 
     @Test

@@ -13,13 +13,6 @@ import java.time.LocalDateTime;
 @EqualsAndHashCode(callSuper = true)
 public class OrderDetailVO extends OrderListVO {
 
-    /**
-     * 已接单人员的公开显示名（优先昵称，昵称为空时退回用户名）。
-     * <p>
-     * 不返回资质档案中的真实姓名，避免在用户端暴露接单员实名信息。
-     */
-    private String sitterName;
-
     /** 服务地址坐标，前端回显地图标记用 */
     private BigDecimal addressLat;
 
