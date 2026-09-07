@@ -15,6 +15,8 @@ import com.pet.common.geo.OrderGeoIndex;
 import com.pet.common.lock.DistributedLock;
 import com.pet.common.util.GeoUtil;
 import com.pet.dto.HallQuery;
+import com.pet.dto.ArbitrationDecisionDTO;
+import com.pet.dto.BountyTaskCreateDTO;
 import com.pet.dto.OrderCancelDTO;
 import com.pet.dto.OrderCreateDTO;
 import com.pet.dto.OrderQuery;
@@ -85,6 +87,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
     private static final long SITTER_CANCEL_GRACE_MINUTES = 30;
     private static final int SITTER_CANCEL_CREDIT_PENALTY = 5;
 
+    private static final String BOUNTY_CATEGORY_CODE = "BOUNTY";
+
     private final PetService petService;
     private final PetMapper petMapper;
     private final UserMapper userMapper;
@@ -110,6 +114,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         order.setUserId(userId);
         order.setPetId(dto.getPetId());
         order.setCategoryId(dto.getCategoryId());
+        order.setOrderType(0);
         order.setServiceAddress(dto.getServiceAddress());
         order.setAddressLat(dto.getAddressLat());
         order.setAddressLng(dto.getAddressLng());
@@ -122,6 +127,47 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         order.setPayStatus(PayStatus.UNPAID.getCode());
         order.setRemark(dto.getRemark());
         save(order);
+        return getDetail(order.getId());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public OrderDetailVO createBounty(BountyTaskCreateDTO dto) {
+        Long userId = UserContext.userId();
+        petService.requireMine(dto.getPetId());
+        validateServiceTime(dto.getServiceStart(), null);
+        ServiceCategory category = serviceCategoryService.getOne(Wrappers.<ServiceCategory>lambdaQuery()
+                .eq(ServiceCategory::getCode, BOUNTY_CATEGORY_CODE)
+                .last("LIMIT 1"));
+        if (category == null) {
+            throw new BusinessException(ResultCode.CATEGORY_NOT_FOUND);
+        }
+
+        BigDecimal amount = dto.getAmount().setScale(2, RoundingMode.HALF_UP);
+        BigDecimal commission = amount.multiply(category.getCommissionRate()).setScale(2, RoundingMode.HALF_UP);
+        Order order = new Order();
+        order.setOrderNo(generateOrderNo());
+        order.setUserId(userId);
+        order.setPetId(dto.getPetId());
+        order.setCategoryId(category.getId());
+        order.setOrderType(1);
+        order.setTaskTitle(StrUtil.trim(dto.getTitle()));
+        order.setTaskDescription(StrUtil.trim(dto.getDescription()));
+        order.setServiceAddress(dto.getServiceAddress());
+        order.setAddressLat(dto.getAddressLat());
+        order.setAddressLng(dto.getAddressLng());
+        order.setServiceStart(dto.getServiceStart());
+        order.setAmount(amount);
+        order.setCommission(commission);
+        order.setSitterIncome(amount.subtract(commission));
+        order.setStatus(OrderStatus.PENDING.getCode());
+        order.setPayStatus(PayStatus.PAID.getCode());
+        order.setPayTime(LocalDateTime.now());
+        save(order);
+
+        // 发布即支付，余额不足会让订单插入随事务一起回滚，不产生无人能抢的空壳悬赏。
+        walletService.payOrder(order.getId(), userId, amount);
+        geoIndex.add(order.getId(), order.getAddressLng(), order.getAddressLat());
         return getDetail(order.getId());
     }
 
@@ -237,6 +283,10 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         Long userId = UserContext.userId();
         Order order = requireOwned(orderId, userId);
 
+        if (Integer.valueOf(1).equals(order.getOrderType())) {
+            throw new BusinessException(ResultCode.ORDER_STATUS_ILLEGAL.getCode(), "悬赏任务由平台审核结算");
+        }
+
         // markAccepted 带 status = 4 AND pay_status = 1 条件，只有影响行数为 1 才允许动钱包。
         // 用户连点两次验收、或前端超时重试时，第二次会在这里被挡住，接单员与平台不会被重复入账。
         if (baseMapper.markAccepted(orderId) == 0) {
@@ -310,6 +360,45 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             records.get(i).setSitterName(sitterNames.get(page.getRecords().get(i).getSitterId()));
         }
         return new PageResult<>(records, page.getTotal(), page.getCurrent(), page.getSize());
+    }
+
+    @Override
+    public PageResult<OrderListVO> pageBounties(OrderQuery query) {
+        Page<Order> page = page(query.toPage(), Wrappers.<Order>lambdaQuery()
+                .eq(Order::getOrderType, 1)
+                .eq(query.getStatus() != null, Order::getStatus, query.getStatus())
+                .orderByDesc(Order::getId));
+        List<OrderListVO> records = toListVOs(page.getRecords(), loadNicknames(page.getRecords()), true);
+        Map<Long, String> sitterNames = loadDisplayNames(page.getRecords().stream()
+                .map(Order::getSitterId).filter(Objects::nonNull).collect(Collectors.toSet()));
+        for (int i = 0; i < records.size(); i++) {
+            records.get(i).setSitterName(sitterNames.get(page.getRecords().get(i).getSitterId()));
+        }
+        return new PageResult<>(records, page.getTotal(), page.getCurrent(), page.getSize());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void reviewBounty(Long orderId, ArbitrationDecisionDTO dto) {
+        Order order = getById(orderId);
+        if (order == null) {
+            throw new BusinessException(ResultCode.ORDER_NOT_FOUND);
+        }
+        if (!Integer.valueOf(1).equals(order.getOrderType())) {
+            throw new BusinessException(ResultCode.ORDER_STATUS_ILLEGAL);
+        }
+        String result = StrUtil.trim(dto.getResult());
+        if (Boolean.TRUE.equals(dto.getApproved())) {
+            if (baseMapper.markBountyApproved(orderId, result) == 0) {
+                throw new BusinessException(ResultCode.ORDER_STATUS_ILLEGAL);
+            }
+            walletService.settleOrder(orderId, order.getUserId(), order.getSitterId(),
+                    order.getSitterIncome(), order.getCommission());
+            return;
+        }
+        if (baseMapper.markBountyRejected(orderId, result) == 0) {
+            throw new BusinessException(ResultCode.ORDER_STATUS_ILLEGAL);
+        }
     }
 
     @Override

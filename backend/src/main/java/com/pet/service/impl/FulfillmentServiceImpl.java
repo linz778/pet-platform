@@ -16,6 +16,7 @@ import com.pet.dto.CheckInDTO;
 import com.pet.dto.EvidenceSaveDTO;
 import com.pet.dto.TrackPointDTO;
 import com.pet.dto.TrackSaveDTO;
+import com.pet.dto.TaskEvidenceSaveDTO;
 import com.pet.entity.Order;
 import com.pet.entity.OrderEvidence;
 import com.pet.mapper.OrderEvidenceMapper;
@@ -140,14 +141,40 @@ public class FulfillmentServiceImpl extends ServiceImpl<OrderEvidenceMapper, Ord
     }
 
     @Override
+    public OrderEvidenceVO saveTaskEvidence(Long orderId, TaskEvidenceSaveDTO dto) {
+        Order order = requireMyOrder(orderId);
+        requireInService(order);
+        if (!Integer.valueOf(1).equals(order.getOrderType())) {
+            throw new BusinessException(ResultCode.ORDER_STATUS_ILLEGAL);
+        }
+        OrderEvidence evidence = new OrderEvidence();
+        evidence.setOrderId(orderId);
+        evidence.setSitterId(order.getSitterId());
+        evidence.setType(EvidenceType.TASK_PROOF.getCode());
+        evidence.setImageUrl(dto.getImageUrl());
+        evidence.setRemark(dto.getRemark());
+        save(evidence);
+        return toVO(evidence);
+    }
+
+    @Override
     public void finish(Long orderId) {
         Order order = requireMyOrder(orderId);
         requireInService(order);
-        List<String> missing = missingItems(order);
-        if (!missing.isEmpty()) {
+        if (Integer.valueOf(1).equals(order.getOrderType())) {
+            long proofs = count(Wrappers.<OrderEvidence>lambdaQuery()
+                    .eq(OrderEvidence::getOrderId, orderId)
+                    .eq(OrderEvidence::getType, EvidenceType.TASK_PROOF.getCode()));
+            if (proofs == 0) {
+                throw new BusinessException(ResultCode.EVIDENCE_REQUIRED.getCode(), "请至少上传一张任务完成证明");
+            }
+        } else {
+            List<String> missing = missingItems(order);
+            if (!missing.isEmpty()) {
             // 只说「请先提交存证」接单员不知道该补哪几项，把缺的项直接列出来
-            throw new BusinessException(ResultCode.EVIDENCE_REQUIRED.getCode(),
-                    "还有 " + missing.size() + " 项未拍照存证：" + String.join("、", missing));
+                throw new BusinessException(ResultCode.EVIDENCE_REQUIRED.getCode(),
+                        "还有 " + missing.size() + " 项未拍照存证：" + String.join("、", missing));
+            }
         }
         if (orderMapper.markFinished(orderId) == 0) {
             throw new BusinessException(ResultCode.ORDER_STATUS_ILLEGAL);

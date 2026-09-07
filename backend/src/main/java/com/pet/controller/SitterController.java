@@ -12,6 +12,7 @@ import com.pet.dto.SitterLocationDTO;
 import com.pet.dto.SitterOrderCancelDTO;
 import com.pet.dto.SitterPetNoteSaveDTO;
 import com.pet.dto.TrackSaveDTO;
+import com.pet.dto.TaskEvidenceSaveDTO;
 import com.pet.security.RequireRole;
 import com.pet.service.FulfillmentService;
 import com.pet.service.OrderService;
@@ -172,6 +173,13 @@ public class SitterController {
     @PostMapping("/order/{orderId}/track")
     public Result<OrderEvidenceVO> saveTrack(@PathVariable Long orderId, @Valid @RequestBody TrackSaveDTO dto) {
         return Result.success(fulfillmentService.saveTrack(orderId, dto));
+    }
+
+    @Operation(summary = "上传悬赏任务证明", description = "服务中可连续上传多张，至少一张才能提交平台审核")
+    @PostMapping("/order/{orderId}/task-proof")
+    public Result<OrderEvidenceVO> saveTaskProof(@PathVariable Long orderId,
+                                                  @Valid @RequestBody TaskEvidenceSaveDTO dto) {
+        return Result.success(fulfillmentService.saveTaskEvidence(orderId, dto));
     }
 
     @Operation(summary = "完成服务", description = "服务中 → 待验收；作业清单必须逐项都有存证，缺项返回 2008 并列出还差哪几项")

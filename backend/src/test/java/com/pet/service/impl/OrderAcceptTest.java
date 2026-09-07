@@ -5,6 +5,7 @@ import com.pet.common.enums.OrderStatus;
 import com.pet.common.enums.PayStatus;
 import com.pet.common.exception.BusinessException;
 import com.pet.entity.Order;
+import com.pet.dto.ArbitrationDecisionDTO;
 import com.pet.mapper.OrderMapper;
 import com.pet.security.LoginUser;
 import com.pet.security.UserContext;
@@ -139,5 +140,35 @@ class OrderAcceptTest {
 
         verify(orderMapper, never()).markAccepted(any());
         verifyNoInteractions(walletService);
+    }
+
+    @Test
+    @DisplayName("悬赏不能由发布者自行验收绕过平台审核")
+    void bountyCannotBeAcceptedByOwner() {
+        Order order = pendingAcceptOrder();
+        order.setOrderType(1);
+
+        assertThatThrownBy(() -> service.accept(ORDER_ID))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getCode()).isEqualTo(ResultCode.ORDER_STATUS_ILLEGAL.getCode()));
+
+        verify(orderMapper, never()).markAccepted(any());
+        verifyNoInteractions(walletService);
+    }
+
+    @Test
+    @DisplayName("平台审核悬赏通过后只结算一次")
+    void approvedBountySettlesEscrow() {
+        Order order = pendingAcceptOrder();
+        order.setOrderType(1);
+        when(orderMapper.markBountyApproved(ORDER_ID, "证明有效")).thenReturn(1);
+        ArbitrationDecisionDTO decision = new ArbitrationDecisionDTO();
+        decision.setApproved(true);
+        decision.setResult("证明有效");
+
+        service.reviewBounty(ORDER_ID, decision);
+
+        verify(walletService).settleOrder(ORDER_ID, OWNER_ID, SITTER_ID,
+                new BigDecimal("54.00"), new BigDecimal("6.00"));
     }
 }

@@ -3,6 +3,8 @@ package com.pet.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.pet.common.api.PageResult;
 import com.pet.dto.HallQuery;
+import com.pet.dto.ArbitrationDecisionDTO;
+import com.pet.dto.BountyTaskCreateDTO;
 import com.pet.dto.OrderCancelDTO;
 import com.pet.dto.OrderCreateDTO;
 import com.pet.dto.OrderQuery;
@@ -24,6 +26,9 @@ public interface OrderService extends IService<Order> {
      * 落库即为「待支付」，不动钱包、不写 GEO 索引——那两件事都发生在支付成功之后。
      */
     OrderDetailVO create(OrderCreateDTO dto);
+
+    /** 发布悬赏并立即冻结用户填写的金额，成功后直接进入接单大厅。 */
+    OrderDetailVO createBounty(BountyTaskCreateDTO dto);
 
     /** 当前登录用户的订单分页，按 id 倒序。status 为空表示全部。 */
     PageResult<OrderListVO> pageMine(OrderQuery query);
@@ -70,6 +75,12 @@ public interface OrderService extends IService<Order> {
 
     /** 管理端查看全部订单，包含下单用户、接单员与平台结算金额。 */
     PageResult<OrderListVO> pageAll(OrderQuery query);
+
+    /** 管理端悬赏任务审核列表。 */
+    PageResult<OrderListVO> pageBounties(OrderQuery query);
+
+    /** 审核完成证明；通过则结算，驳回则退回服务中供接单员补证。 */
+    void reviewBounty(Long orderId, ArbitrationDecisionDTO dto);
 
     /** 返回当前待接单订单可指派的已认证接单员，按距离由近到远排列。 */
     List<SitterDispatchVO> listAssignableSitters(Long orderId);

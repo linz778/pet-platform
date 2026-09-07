@@ -57,6 +57,17 @@ public interface OrderMapper extends BaseMapper<Order> {
             + "WHERE id = #{id} AND status = 4 AND pay_status = 1 AND deleted = 0")
     int markAccepted(@Param("id") Long id);
 
+    /** 管理员审核悬赏任务通过并结算；order_type 条件防止误结算普通订单。 */
+    @Update("UPDATE t_order SET status = 5, pay_status = 2, accept_time = NOW(), "
+            + "task_review_remark = #{remark}, update_time = NOW() "
+            + "WHERE id = #{id} AND order_type = 1 AND status = 4 AND pay_status = 1 AND deleted = 0")
+    int markBountyApproved(@Param("id") Long id, @Param("remark") String remark);
+
+    /** 管理员驳回悬赏证明，任务退回服务中供接单员补充后重新提交。 */
+    @Update("UPDATE t_order SET status = 3, finish_time = NULL, task_review_remark = #{remark}, update_time = NOW() "
+            + "WHERE id = #{id} AND order_type = 1 AND status = 4 AND pay_status = 1 AND deleted = 0")
+    int markBountyRejected(@Param("id") Long id, @Param("remark") String remark);
+
     /** 待支付 / 待接单 → 已取消。完成服务后有异议必须走申诉仲裁。 */
     @Update("UPDATE t_order SET status = 6, cancel_time = NOW(), cancel_reason = #{reason}, update_time = NOW() "
             + "WHERE id = #{id} AND status IN (0, 1) AND deleted = 0")

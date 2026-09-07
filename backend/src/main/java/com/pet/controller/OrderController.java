@@ -3,6 +3,7 @@ package com.pet.controller;
 import com.pet.common.api.PageResult;
 import com.pet.common.api.Result;
 import com.pet.dto.OrderCancelDTO;
+import com.pet.dto.BountyTaskCreateDTO;
 import com.pet.dto.OrderCreateDTO;
 import com.pet.dto.OrderQuery;
 import com.pet.security.RequireRole;
@@ -44,6 +45,12 @@ public class OrderController {
     @PostMapping
     public Result<OrderDetailVO> create(@Valid @RequestBody OrderCreateDTO dto) {
         return Result.success(orderService.create(dto));
+    }
+
+    @Operation(summary = "发布悬赏任务", description = "用户自定义任务和金额，发布成功即冻结金额并进入接单大厅")
+    @PostMapping("/bounty")
+    public Result<OrderDetailVO> createBounty(@Valid @RequestBody BountyTaskCreateDTO dto) {
+        return Result.success(orderService.createBounty(dto));
     }
 
     @Operation(summary = "我的订单分页", description = "status 为空表示全部：0待支付 1待接单 2已接单 3服务中 4待验收 5已完成 6已取消 7仲裁中")

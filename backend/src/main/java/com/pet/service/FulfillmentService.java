@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.pet.dto.CheckInDTO;
 import com.pet.dto.EvidenceSaveDTO;
 import com.pet.dto.TrackSaveDTO;
+import com.pet.dto.TaskEvidenceSaveDTO;
 import com.pet.entity.OrderEvidence;
 import com.pet.vo.OrderEvidenceVO;
 
@@ -36,6 +37,9 @@ public interface FulfillmentService extends IService<OrderEvidence> {
 
     /** 散步轨迹（type=3），仅服务中可上传；同一单允许多条（分段遛）。 */
     OrderEvidenceVO saveTrack(Long orderId, TrackSaveDTO dto);
+
+    /** 为服务中的悬赏任务追加一张完成证明。 */
+    OrderEvidenceVO saveTaskEvidence(Long orderId, TaskEvidenceSaveDTO dto);
 
     /**
      * 标记服务完成：服务中 → 待验收。
