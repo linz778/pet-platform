@@ -137,16 +137,50 @@
 
           <!-- 验收前用户必须能看到接单员留下的凭证。已取消的单不渲染：
                取消只可能发生在待支付/待接单，那时压根没有存证，只会多一个空态 -->
-          <template v-if="[3, 4, 5].includes(detail.status)">
+          <template v-if="[3, 4, 5, 7].includes(detail.status) || arbitration">
             <h4 class="drawer-sub">履约存证</h4>
             <EvidenceList :evidences="evidences" />
           </template>
+
+          <section v-if="arbitration" class="arbitration-card">
+            <div class="arbitration-head">
+              <strong>服务申诉</strong>
+              <el-tag :type="arbitration.approved === true ? 'success' : arbitration.approved === false ? 'info' : 'danger'">
+                {{ arbitration.statusText }}
+              </el-tag>
+            </div>
+            <p><span>申诉原因</span>{{ arbitration.reason }}</p>
+            <div class="arbitration-images">
+              <el-image
+                v-for="url in arbitration.evidenceUrls"
+                :key="url"
+                :src="url"
+                :preview-src-list="arbitration.evidenceUrls"
+                fit="cover"
+              />
+            </div>
+            <template v-if="arbitration.result">
+              <p><span>平台裁定</span>{{ arbitration.result }}</p>
+              <p v-if="arbitration.approved" class="refund-text">
+                已退款 ¥{{ money(arbitration.refundAmount) }} 至账户余额
+              </p>
+            </template>
+            <p v-else class="pending-tip">平台审核期间，订单款项继续由平台冻结担保。</p>
+          </section>
 
           <OrderReviews v-if="detail.status === 5" :order-id="detail.id" target-label="接单员" />
 
           <div class="drawer-actions">
             <el-button v-if="detail.status === 0" type="primary" @click="onPay(detail)">立即支付</el-button>
             <el-button v-if="detail.status === 0 || detail.status === 1" @click="onCancel(detail)">取消订单</el-button>
+            <el-button
+              v-if="detail.status === 4 && !arbitration"
+              type="danger"
+              plain
+              @click="openArbitrationDialog"
+            >
+              对订单有问题或不满意
+            </el-button>
             <el-button
               v-if="detail.status === 4"
               type="success"
@@ -159,19 +193,52 @@
         </template>
       </div>
     </el-drawer>
+
+    <el-dialog v-model="arbitrationDialogVisible" title="提交服务申诉" width="560px" destroy-on-close>
+      <el-alert
+        type="warning"
+        :closable="false"
+        show-icon
+        title="提交后订单将进入平台审核，审核期间款项不会结算给接单员"
+      />
+      <el-form ref="arbitrationFormRef" :model="arbitrationForm" :rules="arbitrationRules" label-position="top">
+        <el-form-item label="不满意原因或接单员操作问题" prop="reason">
+          <el-input
+            v-model="arbitrationForm.reason"
+            type="textarea"
+            :rows="5"
+            maxlength="500"
+            show-word-limit
+            placeholder="请具体描述服务问题，例如未按作业清单完成、操作不规范或宠物出现异常情况"
+          />
+        </el-form-item>
+        <el-form-item label="证据照片（1-5 张）" prop="evidenceUrls">
+          <ImageUpload v-model="arbitrationForm.evidenceUrls" biz-type="evidence" :limit="5" />
+          <p class="form-tip">请上传能说明问题的现场照片；接单员和平台审核人员均可查看。</p>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="arbitrationDialogVisible = false">取消</el-button>
+        <el-button type="danger" :loading="submittingArbitration" @click="onSubmitArbitration">
+          提交平台审核
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { getOrderArbitration, submitArbitration } from '@/api/arbitration'
 import { acceptOrder, cancelOrder, getOrder, getOrderEvidence, pageMyOrders, payOrder } from '@/api/order'
 import EvidenceList from '@/components/EvidenceList.vue'
+import ImageUpload from '@/components/ImageUpload.vue'
 import OrderReviews from '@/components/OrderReviews.vue'
 import { money } from '@/utils/format'
 
-const TABS = { 0: '待支付', 1: '待接单', 2: '已接单', 3: '服务中', 4: '待验收', 5: '已完成', 6: '已取消' }
-const STATUS_TAG = { 0: 'warning', 1: 'primary', 2: 'primary', 3: 'primary', 4: 'warning', 5: 'success', 6: 'info' }
+const TABS = { 0: '待支付', 1: '待接单', 2: '已接单', 3: '服务中', 4: '待验收', 5: '已完成', 6: '已取消', 7: '仲裁中' }
+const STATUS_TAG = { 0: 'warning', 1: 'primary', 2: 'primary', 3: 'primary', 4: 'warning', 5: 'success', 6: 'info', 7: 'danger' }
 
 const activeTab = ref('all')
 const orders = ref([])
@@ -183,7 +250,26 @@ const detailVisible = ref(false)
 const loadingDetail = ref(false)
 const detail = ref(null)
 const evidences = ref([])
+const arbitration = ref(null)
 const acceptingId = ref(null)
+
+const arbitrationDialogVisible = ref(false)
+const arbitrationFormRef = ref(null)
+const submittingArbitration = ref(false)
+const arbitrationForm = reactive({ reason: '', evidenceUrls: [] })
+const arbitrationRules = {
+  reason: [
+    { required: true, message: '请填写不满意原因或接单员操作问题', trigger: 'blur' },
+    { max: 500, message: '申诉原因不能超过 500 字', trigger: 'blur' }
+  ],
+  evidenceUrls: [{
+    validator: (_rule, value, callback) => {
+      if (!Array.isArray(value) || value.length === 0) callback(new Error('请至少上传 1 张证据照片'))
+      else callback()
+    },
+    trigger: 'change'
+  }]
+}
 
 async function load() {
   loading.value = true
@@ -217,15 +303,44 @@ async function openDetail(id) {
   loadingDetail.value = true
   detail.value = null
   evidences.value = []
+  arbitration.value = null
   try {
     detail.value = await getOrder(id)
-    evidences.value = [3, 4, 5].includes(detail.value.status)
+    arbitration.value = await getOrderArbitration(id).catch(() => null)
+    evidences.value = [3, 4, 5, 7].includes(detail.value.status) || arbitration.value
       ? await getOrderEvidence(id).catch(() => [])
       : []
   } catch {
     detailVisible.value = false
   } finally {
     loadingDetail.value = false
+  }
+}
+
+function openArbitrationDialog() {
+  arbitrationForm.reason = ''
+  arbitrationForm.evidenceUrls = []
+  arbitrationDialogVisible.value = true
+}
+
+async function onSubmitArbitration() {
+  try {
+    await arbitrationFormRef.value?.validate()
+  } catch {
+    return
+  }
+  submittingArbitration.value = true
+  try {
+    await submitArbitration(detail.value.id, {
+      reason: arbitrationForm.reason.trim(),
+      evidenceUrls: arbitrationForm.evidenceUrls
+    })
+    ElMessage.success('申诉已提交，平台审核期间订单款项将继续冻结')
+    arbitrationDialogVisible.value = false
+    await openDetail(detail.value.id)
+    await load()
+  } finally {
+    submittingArbitration.value = false
   }
 }
 
@@ -428,6 +543,61 @@ onMounted(load)
   margin: 0 6px;
   font-weight: 600;
   color: var(--pp-primary);
+}
+
+.arbitration-card {
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid #f3c7c7;
+  border-radius: var(--pp-radius);
+  background: #fff8f8;
+}
+
+.arbitration-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.arbitration-card p {
+  margin: 8px 0;
+  line-height: 1.6;
+}
+
+.arbitration-card p > span {
+  display: inline-block;
+  min-width: 72px;
+  color: var(--pp-muted);
+}
+
+.arbitration-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.arbitration-images :deep(.el-image) {
+  width: 82px;
+  height: 82px;
+  border-radius: 8px;
+}
+
+.refund-text {
+  font-weight: 600;
+  color: var(--pp-primary);
+}
+
+.pending-tip,
+.form-tip {
+  color: var(--pp-muted);
+  font-size: 12px;
+}
+
+.form-tip {
+  width: 100%;
+  margin: 6px 0 0;
 }
 
 .drawer-actions {
