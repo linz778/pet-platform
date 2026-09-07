@@ -263,6 +263,6 @@ onMounted(load)
 .decision-section { padding: 17px; border: 1px solid #e1ebe3; border-radius: 15px; background: #fbfdfb; }
 .decision-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
-@media (max-width: 1200px) { .application-card { grid-template-columns: 1fr 2fr auto; } .certificate-strip { display: none; } }
+@media (max-width: 1500px) { .application-card { grid-template-columns: 1fr 2fr auto; } .certificate-strip { display: none; } }
 @media (max-width: 820px) { .application-card { align-items: start; grid-template-columns: 1fr; } .card-actions { align-items: flex-start; } .profile-summary { grid-template-columns: 1fr 1fr; } .filter-panel { align-items: stretch; flex-direction: column; } .filter-actions .el-input { width: 100%; } .identity-data { display: none; } .document-grid { grid-template-columns: 1fr; } }
 </style>
