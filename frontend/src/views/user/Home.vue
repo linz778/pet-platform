@@ -31,23 +31,43 @@
             <span class="section-kicker">宠物社区</span>
             <h2>今天大家都在聊什么</h2>
           </div>
-          <el-button link type="primary" @click="router.push('/community')">进入社区 →</el-button>
+          <div class="preview-head-actions">
+            <span v-if="latestPosts.length" class="scroll-hint">滚动查看更多 ↓</span>
+            <el-button link type="primary" @click="router.push('/community')">进入社区 →</el-button>
+          </div>
         </div>
         <el-empty v-if="latestPosts.length === 0" :image-size="55" description="社区等待第一位分享者">
           <el-button type="primary" plain @click="router.push('/community')">去发布动态</el-button>
         </el-empty>
         <div v-else class="preview-list">
-          <button v-for="post in latestPosts" :key="post.id" type="button" class="preview-post" @click="router.push('/community')">
-            <div class="preview-thumb">
-              <el-image v-if="post.imageUrls?.[0]" :src="post.imageUrls[0]" fit="cover" />
-              <span v-else>{{ post.type === 2 ? '💡' : '🐾' }}</span>
-            </div>
+          <article v-for="post in latestPosts" :key="post.id" class="preview-post" @click="router.push('/community')">
+            <el-avatar :size="42" :src="post.authorAvatar" class="moment-avatar">
+              {{ post.authorName?.slice(0, 1) || '宠' }}
+            </el-avatar>
             <div class="preview-post-main">
-              <span>{{ post.typeText }} · {{ post.authorName }}</span>
-              <strong>{{ post.title }}</strong>
-              <small>🐾 {{ post.likeCount || 0 }}　💬 {{ post.commentCount || 0 }}</small>
+              <header class="moment-meta">
+                <div>
+                  <strong>{{ post.authorName || '社区用户' }}</strong>
+                  <span>{{ post.createTime }}</span>
+                </div>
+                <el-tag :type="post.type === 2 ? 'warning' : 'success'" effect="light" round size="small">
+                  {{ post.typeText }}
+                </el-tag>
+              </header>
+              <h3>{{ post.title }}</h3>
+              <p>{{ post.content }}</p>
+              <div v-if="post.imageUrls?.length" class="moment-images" :class="{ single: post.imageUrls.length === 1 }">
+                <div v-for="(url, index) in post.imageUrls.slice(0, 3)" :key="url" class="moment-image-wrap">
+                  <el-image :src="url" :preview-src-list="post.imageUrls" :initial-index="index" fit="cover" @click.stop />
+                  <span v-if="index === 2 && post.imageUrls.length > 3" class="image-more">+{{ post.imageUrls.length - 3 }}</span>
+                </div>
+              </div>
+              <footer class="moment-actions">
+                <span>🐾 {{ post.likeCount || 0 }}</span>
+                <span>💬 {{ post.commentCount || 0 }}</span>
+              </footer>
             </div>
-          </button>
+          </article>
         </div>
       </div>
 
@@ -870,7 +890,7 @@ onMounted(async () => {
       listMyPets(),
       getMyWallet().catch(() => null),
       loadAddresses(),
-      pageCommunityPosts({ page: 1, size: 3 }).catch(() => null)
+      pageCommunityPosts({ page: 1, size: 8 }).catch(() => null)
     ])
     categories.value = cats ?? []
     pets.value = myPets ?? []
@@ -1011,6 +1031,7 @@ onMounted(async () => {
 .discovery-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(270px, 0.5fr);
+  align-items: start;
   gap: 16px;
   margin-bottom: 20px;
 }
@@ -1031,6 +1052,17 @@ onMounted(async () => {
   gap: 12px;
 }
 
+.preview-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scroll-hint {
+  color: var(--pp-muted);
+  font-size: 11px;
+}
+
 .preview-head h2,
 .companion-card h2 {
   margin: 6px 0 14px;
@@ -1038,44 +1070,76 @@ onMounted(async () => {
 }
 
 .preview-list {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  display: flex;
+  max-height: 430px;
+  flex-direction: column;
+  overflow-y: auto;
+  padding-right: 8px;
+  scrollbar-color: #bfd4c4 transparent;
+  scrollbar-width: thin;
 }
+
+.preview-list::-webkit-scrollbar { width: 6px; }
+.preview-list::-webkit-scrollbar-thumb { border-radius: 999px; background: #bfd4c4; }
 
 .preview-post {
   display: flex;
   min-width: 0;
-  gap: 10px;
-  padding: 10px;
-  border: 1px solid #edf2ee;
-  border-radius: 14px;
-  background: #fbfdfb;
+  gap: 12px;
+  padding: 16px 8px;
+  border-bottom: 1px solid #edf2ee;
   color: inherit;
   cursor: pointer;
-  font: inherit;
-  text-align: left;
-  transition: transform 0.2s ease, border-color 0.2s ease;
+  transition: background 0.2s ease;
 }
 
-.preview-post:hover { border-color: var(--pp-primary); transform: translateY(-2px); }
+.preview-post:first-child { padding-top: 4px; }
+.preview-post:last-child { border-bottom: 0; }
+.preview-post:hover { background: #f8fbf8; }
 
-.preview-thumb {
+.moment-avatar { flex: 0 0 auto; background: var(--pp-primary); color: #fff; }
+.preview-post-main { min-width: 0; flex: 1; }
+
+.moment-meta { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.moment-meta > div { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.moment-meta strong { overflow: hidden; color: #4f6f5b; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.moment-meta span { color: var(--pp-muted); font-size: 10px; }
+.preview-post-main h3 { margin: 8px 0 4px; font-size: 15px; }
+.preview-post-main p {
+  display: -webkit-box;
   overflow: hidden;
-  display: grid;
-  flex: 0 0 64px;
-  height: 64px;
-  place-items: center;
-  border-radius: 11px;
-  background: var(--pp-tint);
-  font-size: 24px;
+  margin: 0;
+  color: #4f5e55;
+  font-size: 13px;
+  line-height: 1.65;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
-.preview-thumb :deep(.el-image) { width: 100%; height: 100%; }
-.preview-post-main { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
-.preview-post-main > span,
-.preview-post-main small { color: var(--pp-muted); font-size: 10px; }
-.preview-post-main strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.moment-images {
+  display: grid;
+  width: min(100%, 360px);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.moment-images.single { grid-template-columns: minmax(0, 210px); }
+.moment-image-wrap { position: relative; overflow: hidden; aspect-ratio: 1; border-radius: 8px; background: var(--pp-tint); }
+.moment-images.single .moment-image-wrap { aspect-ratio: 4 / 3; }
+.moment-image-wrap :deep(.el-image) { width: 100%; height: 100%; }
+.image-more {
+  position: absolute;
+  right: 7px;
+  bottom: 6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 55%);
+  color: #fff;
+  font-size: 11px;
+}
+
+.moment-actions { display: flex; justify-content: flex-end; gap: 18px; margin-top: 10px; color: var(--pp-muted); font-size: 12px; }
 
 .companion-card {
   position: relative;
@@ -1433,10 +1497,13 @@ onMounted(async () => {
     padding: 30px 24px;
   }
 
-  .discovery-grid,
-  .preview-list {
+  .discovery-grid {
     grid-template-columns: 1fr;
   }
+
+  .preview-head { align-items: flex-start; }
+  .preview-head-actions { flex-direction: column-reverse; align-items: flex-end; gap: 2px; }
+  .preview-list { max-height: 390px; padding-right: 4px; }
 
   .hero-wallet {
     margin-top: 4px;
