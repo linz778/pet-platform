@@ -7,6 +7,7 @@
         <p>把照顾交给值得信赖的人，把更多时间留给你和毛孩子的快乐日常。</p>
         <div class="hero-actions">
           <el-button type="primary" size="large" round @click="scrollToServices">预约上门服务</el-button>
+          <el-button type="warning" size="large" round @click="openBounty">发布任务悬赏</el-button>
           <el-button size="large" round @click="router.push('/community')">逛逛宠物社区</el-button>
         </div>
         <div class="trust-row">
@@ -365,6 +366,54 @@
       </template>
     </el-dialog>
 
+    <el-dialog v-model="bountyVisible" title="发布任务悬赏" width="min(620px, 92vw)">
+      <el-alert type="warning" :closable="false" show-icon title="任务完成后由管理员审核照片，审核通过才会结算给接单员" />
+      <el-form ref="bountyFormRef" :model="bountyForm" :rules="bountyRules" label-width="90px" class="bounty-form">
+        <el-form-item label="任务标题" prop="title">
+          <el-input v-model="bountyForm.title" maxlength="100" show-word-limit placeholder="例如：带小猫去宠物医院绝育" />
+        </el-form-item>
+        <el-form-item label="任务要求" prop="description">
+          <el-input
+            v-model="bountyForm.description"
+            type="textarea"
+            :rows="4"
+            maxlength="1000"
+            show-word-limit
+            placeholder="写清医院、接送、注意事项和需要提交的证明"
+          />
+        </el-form-item>
+        <el-form-item label="服务宠物" prop="petId">
+          <el-select v-model="bountyForm.petId" class="full" placeholder="请选择宠物">
+            <el-option v-for="p in pets" :key="p.id" :label="`${p.name} · ${p.species || '宠物'}`" :value="p.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="开始时间" prop="serviceStart">
+          <el-date-picker
+            v-model="bountyForm.serviceStart"
+            type="datetime"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            :disabled-date="disabledDate"
+            class="full"
+          />
+        </el-form-item>
+        <el-form-item label="悬赏金额" prop="amount">
+          <el-input-number v-model="bountyForm.amount" :min="1" :max="10000" :precision="2" :step="10" />
+          <span class="bounty-pay-note">发布后从余额冻结 ¥{{ money(bountyForm.amount) }}</span>
+        </el-form-item>
+        <el-form-item label="任务地址">
+          <div v-if="selectedAddress" class="bounty-address">
+            <div><el-tag effect="plain">{{ selectedAddress.label }}</el-tag> {{ fullAddress(selectedAddress) }}</div>
+            <el-button link type="primary" @click="openAddressBook">更换</el-button>
+          </div>
+          <el-button v-else type="primary" plain @click="openAddressEditor(null, true)">先添加常用地址</el-button>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="bountyVisible = false">取消</el-button>
+        <el-button type="warning" :loading="publishingBounty" @click="publishBounty">确认发布并支付</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="rechargeVisible" title="钱包充值" width="420px">
       <el-form label-width="80px">
         <el-form-item label="充值金额">
@@ -395,7 +444,7 @@ import { pageCommunityPosts } from '@/api/community'
 import { listCategories, previewPrice } from '@/api/serviceCategory'
 import { listMyPets } from '@/api/pet'
 import { getMyWallet, recharge } from '@/api/wallet'
-import { createOrder } from '@/api/order'
+import { createBountyTask, createOrder } from '@/api/order'
 import {
   createUserAddress,
   deleteUserAddress,
@@ -442,6 +491,10 @@ const submitting = ref(false)
 const rechargeVisible = ref(false)
 const recharging = ref(false)
 const rechargeAmount = ref(1000)
+const bountyVisible = ref(false)
+const publishingBounty = ref(false)
+const bountyFormRef = ref(null)
+const bountyForm = reactive({ title: '', description: '', petId: null, serviceStart: defaultStart(), amount: 50 })
 
 const addresses = ref([])
 const loadingAddresses = ref(false)
@@ -479,6 +532,14 @@ const rules = {
   serviceAddress: [{ required: true, message: '请选择或新增一个服务地址', trigger: 'change' }]
 }
 
+const bountyRules = {
+  title: [{ required: true, message: '请填写任务标题', trigger: 'blur' }],
+  description: [{ required: true, message: '请写清任务要求', trigger: 'blur' }],
+  petId: [{ required: true, message: '请选择服务宠物', trigger: 'change' }],
+  serviceStart: [{ required: true, message: '请选择任务开始时间', trigger: 'change' }],
+  amount: [{ required: true, message: '请填写悬赏金额', trigger: 'change' }]
+}
+
 const addressRules = {
   label: [{ required: true, message: '请选择地址标签', trigger: 'change' }],
   detailAddress: [
@@ -509,6 +570,42 @@ function nextCompanionIdea() {
 
 function scrollToServices() {
   document.querySelector('#service-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+function openBounty() {
+  bountyForm.petId ||= pets.value[0]?.id ?? null
+  bountyForm.serviceStart = defaultStart()
+  bountyVisible.value = true
+}
+
+async function publishBounty() {
+  const ok = await bountyFormRef.value?.validate().catch(() => false)
+  if (!ok) return
+  if (!selectedAddress.value) {
+    ElMessage.warning('请先选择一个任务地址')
+    return
+  }
+  if (Number(wallet.balance || 0) < Number(bountyForm.amount || 0)) {
+    ElMessage.warning('余额不足，请先充值后再发布')
+    return
+  }
+  publishingBounty.value = true
+  try {
+    const address = selectedAddress.value
+    const order = await createBountyTask({
+      ...bountyForm,
+      serviceAddress: fullAddress(address),
+      addressLat: Number(address.lat),
+      addressLng: Number(address.lng)
+    })
+    ElMessage.success(`悬赏发布成功，订单号 ${order.orderNo}`)
+    bountyVisible.value = false
+    router.push('/user/orders')
+  } catch {
+    // 请求拦截器已提示
+  } finally {
+    publishingBounty.value = false
+  }
 }
 
 function defaultStart() {
@@ -970,6 +1067,20 @@ onMounted(async () => {
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 24px;
+}
+
+.bounty-form { margin-top: 20px; }
+.bounty-pay-note { margin-left: 12px; color: var(--pp-muted); font-size: 12px; }
+.bounty-address {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--pp-tint-2);
+  border-radius: 12px;
+  line-height: 1.6;
 }
 
 .trust-row {

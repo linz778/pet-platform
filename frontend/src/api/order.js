@@ -5,6 +5,11 @@ export function createOrder(data) {
   return request.post('/order', data)
 }
 
+/** 发布悬赏任务；成功即冻结自定义金额并进入接单大厅。 */
+export function createBountyTask(data) {
+  return request.post('/order/bounty', data)
+}
+
 /**
  * 我的订单分页。
  * @param {{page?:number,size?:number,status?:number}} params status 为空表示全部
