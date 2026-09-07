@@ -250,6 +250,41 @@
             description="验收通过后到手金额才会进入收益钱包；用户对服务有异议时会由平台介入。"
           />
 
+          <el-alert
+            v-else-if="detail.status === 7"
+            class="wait-alert"
+            type="error"
+            :closable="false"
+            show-icon
+            title="用户已对本订单发起服务申诉"
+            description="订单款项仍由平台冻结，请查看下方原因和证据并等待平台审核。"
+          />
+
+          <section v-if="arbitration" class="arbitration-card">
+            <div class="arbitration-head">
+              <strong>用户申诉内容</strong>
+              <el-tag :type="arbitration.approved === true ? 'success' : arbitration.approved === false ? 'info' : 'danger'">
+                {{ arbitration.statusText }}
+              </el-tag>
+            </div>
+            <p><span>申诉原因</span>{{ arbitration.reason }}</p>
+            <div class="arbitration-images">
+              <el-image
+                v-for="url in arbitration.evidenceUrls"
+                :key="url"
+                :src="url"
+                :preview-src-list="arbitration.evidenceUrls"
+                fit="cover"
+              />
+            </div>
+            <template v-if="arbitration.result">
+              <p><span>平台裁定</span>{{ arbitration.result }}</p>
+              <p class="decision-text" :class="arbitration.approved ? 'approved' : 'rejected'">
+                {{ arbitration.approved ? `申诉通过，已向用户退款 ¥${money(arbitration.refundAmount)}` : '申诉已驳回，订单恢复待验收' }}
+              </p>
+            </template>
+          </section>
+
           <!-- 未发生的流程节点后端压根不返回该键（Jackson non_null），必须逐个 v-if 守卫 -->
           <h4 class="drawer-sub">履约进度</h4>
           <el-timeline>
@@ -265,6 +300,12 @@
             </el-timeline-item>
             <el-timeline-item v-if="detail.finishTime" :timestamp="detail.finishTime" type="primary">
               服务完成，等待用户验收
+            </el-timeline-item>
+            <el-timeline-item v-if="arbitration" :timestamp="arbitration.createTime" type="danger">
+              用户提交服务申诉，平台介入审核
+            </el-timeline-item>
+            <el-timeline-item v-if="arbitration?.result" :timestamp="arbitration.updateTime" :type="arbitration.approved ? 'danger' : 'warning'">
+              {{ arbitration.approved ? '平台裁定退款' : '平台驳回申诉' }}
             </el-timeline-item>
             <el-timeline-item v-if="detail.acceptTime" :timestamp="detail.acceptTime" type="success">
               验收通过，已结算到我的钱包
@@ -287,6 +328,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { getOrderArbitration } from '@/api/arbitration'
 import { getOrder, getOrderEvidence } from '@/api/order'
 import { getCategory } from '@/api/serviceCategory'
 import {
@@ -307,10 +349,10 @@ import { formatDateTime, money } from '@/utils/format'
 const router = useRouter()
 
 // 接单员主动取消后仍保留 sitter_id，方便本人查看取消原因，因此列表包含「已取消」。
-const TABS = { 2: '已接单', 3: '服务中', 4: '待验收', 5: '已完成', 6: '已取消' }
-const STATUS_TAG = { 2: 'primary', 3: 'primary', 4: 'warning', 5: 'success', 6: 'info' }
+const TABS = { 2: '已接单', 3: '服务中', 4: '待验收', 5: '已完成', 6: '已取消', 7: '仲裁中' }
+const STATUS_TAG = { 2: 'primary', 3: 'primary', 4: 'warning', 5: 'success', 6: 'info', 7: 'danger' }
 // 卡片上的主按钮只是「下一步该干什么」的提示，所有状态都打开同一个抽屉。
-const ACTION_TEXT = { 2: '到达打卡', 3: '继续履约', 4: '查看存证', 5: '查看存证', 6: '查看原因' }
+const ACTION_TEXT = { 2: '到达打卡', 3: '继续履约', 4: '查看存证', 5: '查看存证', 6: '查看结果', 7: '查看申诉' }
 
 const activeTab = ref('all')
 const orders = ref([])
@@ -322,6 +364,7 @@ const detailVisible = ref(false)
 const loadingDetail = ref(false)
 const detail = ref(null)
 const evidences = ref([])
+const arbitration = ref(null)
 const category = ref(null)
 const checklist = ref([])
 // 清单项 → 已存证的照片地址，直接绑到每一行的 ImageUpload 上
@@ -409,6 +452,7 @@ function resetDrawer() {
   stopWatch()
   detail.value = null
   evidences.value = []
+  arbitration.value = null
   category.value = null
   checklist.value = []
   trackPoints.value = []
@@ -417,12 +461,14 @@ function resetDrawer() {
 
 /** 存证与服务类别互不依赖，并行拉；任一失败都不该让抽屉整个打不开，所以各自兜底。 */
 async function loadFulfillment(order) {
-  const [list, cat] = await Promise.all([
+  const [list, cat, complaint] = await Promise.all([
     getOrderEvidence(order.id).catch(() => []),
-    getCategory(order.categoryId).catch(() => null)
+    getCategory(order.categoryId).catch(() => null),
+    getOrderArbitration(order.id).catch(() => null)
   ])
   evidences.value = list ?? []
   category.value = cat
+  arbitration.value = complaint
   checklist.value = cat?.checklist ?? []
   syncPhotos()
 }
@@ -814,6 +860,57 @@ onMounted(reload)
 
 .wait-alert {
   margin-top: 16px;
+}
+
+.arbitration-card {
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid #f3c7c7;
+  border-radius: var(--pp-radius);
+  background: #fff8f8;
+}
+
+.arbitration-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.arbitration-card p {
+  margin: 8px 0;
+  line-height: 1.6;
+}
+
+.arbitration-card p > span {
+  display: inline-block;
+  min-width: 72px;
+  color: var(--pp-muted);
+}
+
+.arbitration-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.arbitration-images :deep(.el-image) {
+  width: 82px;
+  height: 82px;
+  border-radius: 8px;
+}
+
+.decision-text {
+  font-weight: 600;
+}
+
+.decision-text.approved {
+  color: var(--el-color-danger);
+}
+
+.decision-text.rejected {
+  color: var(--pp-primary);
 }
 
 .cancel-step {
