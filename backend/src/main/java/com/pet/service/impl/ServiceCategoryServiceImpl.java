@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.pet.common.api.ResultCode;
 import com.pet.common.exception.BusinessException;
 import com.pet.common.util.CommaListUtil;
+import com.pet.dto.ServiceRuleUpdateDTO;
 import com.pet.entity.ServiceCategory;
 import com.pet.mapper.ServiceCategoryMapper;
 import com.pet.service.ServiceCategoryService;
@@ -37,6 +38,27 @@ public class ServiceCategoryServiceImpl extends ServiceImpl<ServiceCategoryMappe
                 .stream()
                 .map(this::toVO)
                 .toList();
+    }
+
+    @Override
+    public List<ServiceCategoryVO> listAllRules() {
+        return list(Wrappers.<ServiceCategory>lambdaQuery().orderByAsc(ServiceCategory::getId))
+                .stream().map(this::toVO).toList();
+    }
+
+    @Override
+    public ServiceCategoryVO updateRule(Long categoryId, ServiceRuleUpdateDTO dto) {
+        ServiceCategory category = requireCategory(categoryId);
+        category.setBasePrice(dto.getBasePrice());
+        category.setHolidayRate(dto.getHolidayRate());
+        category.setCommissionRate(dto.getCommissionRate());
+        String checklist = CommaListUtil.join(dto.getChecklist());
+        category.setChecklistTemplate(checklist == null ? "" : checklist);
+        category.setStatus(dto.getStatus());
+        if (!updateById(category)) {
+            throw new BusinessException(ResultCode.CATEGORY_NOT_FOUND);
+        }
+        return toVO(category);
     }
 
     @Override

@@ -2,6 +2,7 @@ package com.pet.service.impl;
 
 import com.pet.common.api.ResultCode;
 import com.pet.common.exception.BusinessException;
+import com.pet.dto.ServiceRuleUpdateDTO;
 import com.pet.entity.ServiceCategory;
 import com.pet.mapper.ServiceCategoryMapper;
 import com.pet.vo.PricePreviewVO;
@@ -15,10 +16,13 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -167,5 +171,25 @@ class PriceCalculationTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getCode())
                 .isEqualTo(ResultCode.CATEGORY_NOT_FOUND.getCode());
+    }
+
+    @Test
+    @DisplayName("管理端更新规则后返回数据库中的最新配置")
+    void updateRuleReturnsReloadedRule() {
+        ServiceCategory before = new ServiceCategory();
+        before.setId(1L);
+        before.setBasePrice(new BigDecimal("40.00"));
+        when(categoryMapper.selectById(1L)).thenReturn(before);
+        when(categoryMapper.updateById(any(ServiceCategory.class))).thenReturn(1);
+        ServiceRuleUpdateDTO dto = new ServiceRuleUpdateDTO();
+        dto.setBasePrice(new BigDecimal("48.00"));
+        dto.setHolidayRate(new BigDecimal("1.300"));
+        dto.setCommissionRate(new BigDecimal("0.120"));
+        dto.setChecklist(List.of("换粮", "添水"));
+        dto.setStatus(1);
+
+        assertThat(service.updateRule(1L, dto).getBasePrice()).isEqualByComparingTo("48.00");
+
+        verify(categoryMapper).updateById(any(ServiceCategory.class));
     }
 }

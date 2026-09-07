@@ -2,6 +2,7 @@ package com.pet.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.pet.entity.ServiceCategory;
+import com.pet.dto.ServiceRuleUpdateDTO;
 import com.pet.vo.PricePreviewVO;
 import com.pet.vo.ServiceCategoryVO;
 
@@ -12,6 +13,12 @@ public interface ServiceCategoryService extends IService<ServiceCategory> {
 
     /** 上架中的服务目录，用户端选购页用。 */
     List<ServiceCategoryVO> listOnShelf();
+
+    /** 管理端规则列表，包含已下架服务。 */
+    List<ServiceCategoryVO> listAllRules();
+
+    /** 更新现有服务的计价、清单与上下架状态。 */
+    ServiceCategoryVO updateRule(Long categoryId, ServiceRuleUpdateDTO dto);
 
     /** 按 id 查详情。不校验上下架状态——管理端要能查看已下架的类别。 */
     ServiceCategoryVO getDetail(Long categoryId);
