@@ -1,24 +1,65 @@
 <template>
-  <div class="page-container">
-    <el-card class="head-card">
-      <div class="head">
-        <div class="head-text">
-          <h2 class="title">🏠 预约上门服务</h2>
-          <p class="subtitle">先挑选需要的服务，再填写本次预约。常用地址保存一次，以后下单直接使用。</p>
+  <div class="page-container home-page">
+    <section class="home-hero">
+      <div class="hero-copy">
+        <span class="hero-eyebrow">🐾 WELCOME HOME</span>
+        <h1>{{ greeting }}，{{ displayName }}</h1>
+        <p>把照顾交给值得信赖的人，把更多时间留给你和毛孩子的快乐日常。</p>
+        <div class="hero-actions">
+          <el-button type="primary" size="large" round @click="scrollToServices">预约上门服务</el-button>
+          <el-button size="large" round @click="router.push('/community')">逛逛宠物社区</el-button>
         </div>
-        <div class="wallet-strip">
-          <div class="wallet-item">
-            <span class="wallet-label">可用余额</span>
-            <span class="wallet-value">¥{{ money(wallet.balance) }}</span>
-          </div>
-          <div class="wallet-item">
-            <span class="wallet-label">担保中</span>
-            <span class="wallet-value muted">¥{{ money(wallet.frozen) }}</span>
-          </div>
-          <el-button type="primary" plain @click="openRecharge">充值</el-button>
+        <div class="trust-row">
+          <span>✓ 资质审核</span><span>✓ 平台担保</span><span>✓ 履约存证</span>
         </div>
       </div>
-    </el-card>
+      <div class="hero-wallet">
+        <span class="wallet-kicker">我的宠物服务账户</span>
+        <div class="wallet-main">
+          <div><small>可用余额</small><strong>¥{{ money(wallet.balance) }}</strong></div>
+          <div><small>担保中</small><strong class="frozen">¥{{ money(wallet.frozen) }}</strong></div>
+        </div>
+        <el-button type="primary" plain round @click="openRecharge">充值余额</el-button>
+        <div class="hero-pets" aria-hidden="true"><span>🐕</span><span>🐈</span><span>🐇</span></div>
+      </div>
+    </section>
+
+    <section class="discovery-grid">
+      <div class="community-preview">
+        <div class="preview-head">
+          <div>
+            <span class="section-kicker">宠物社区</span>
+            <h2>今天大家都在聊什么</h2>
+          </div>
+          <el-button link type="primary" @click="router.push('/community')">进入社区 →</el-button>
+        </div>
+        <el-empty v-if="latestPosts.length === 0" :image-size="55" description="社区等待第一位分享者">
+          <el-button type="primary" plain @click="router.push('/community')">去发布动态</el-button>
+        </el-empty>
+        <div v-else class="preview-list">
+          <button v-for="post in latestPosts" :key="post.id" type="button" class="preview-post" @click="router.push('/community')">
+            <div class="preview-thumb">
+              <el-image v-if="post.imageUrls?.[0]" :src="post.imageUrls[0]" fit="cover" />
+              <span v-else>{{ post.type === 2 ? '💡' : '🐾' }}</span>
+            </div>
+            <div class="preview-post-main">
+              <span>{{ post.typeText }} · {{ post.authorName }}</span>
+              <strong>{{ post.title }}</strong>
+              <small>🐾 {{ post.likeCount || 0 }}　💬 {{ post.commentCount || 0 }}</small>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <aside class="companion-card">
+        <span class="companion-icon">🎲</span>
+        <span class="section-kicker">趣味小模块</span>
+        <h2>今天陪它做什么？</h2>
+        <p>{{ companionIdea }}</p>
+        <el-button type="primary" plain round @click="nextCompanionIdea">换一个灵感</el-button>
+        <div class="companion-note">每天一点高质量陪伴，比一次很久更让它安心。</div>
+      </aside>
+    </section>
 
     <el-alert
       v-if="form.categoryId && shortOfBalance"
@@ -34,7 +75,7 @@
       </template>
     </el-alert>
 
-    <el-card v-loading="loadingCategories" class="section-card service-card">
+    <el-card id="service-section" v-loading="loadingCategories" class="section-card service-card">
       <div class="section-head">
         <div>
           <h3 class="section-title">选择你需要的服务</h3>
@@ -330,6 +371,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { pageCommunityPosts } from '@/api/community'
 import { listCategories, previewPrice } from '@/api/serviceCategory'
 import { listMyPets } from '@/api/pet'
 import { getMyWallet, recharge } from '@/api/wallet'
@@ -343,11 +385,33 @@ import {
 } from '@/api/userAddress'
 import { money, petAgeText, formatDateTime } from '@/utils/format'
 import { searchAdministrativeChildren, searchPois } from '@/utils/amap'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const userStore = useUserStore()
 
 const CATEGORY_EMOJI = { FEEDING: '🍚', GROOMING: '🛁', WALKING: '🦮', COMPANION: '🧸' }
 const ADDRESS_LABELS = ['家', '学校', '公司', '其他']
+const COMPANION_IDEAS = [
+  '藏起 3 颗小零食，让它用鼻子完成一场寻宝游戏。',
+  '用 10 分钟练习“坐下”和“等待”，结束后给它一个大大的拥抱。',
+  '拍一张它今天最有趣的表情，分享到社区记录成长。',
+  '换一条平时没走过的安全路线，让散步多一点新鲜气味。',
+  '拿出最喜欢的玩具，进行一场不看手机的专注陪玩。',
+  '轻轻梳毛并检查耳朵、脚垫和皮肤，把日常护理变成亲密时刻。'
+]
+
+const latestPosts = ref([])
+const companionIdeaIndex = ref(new Date().getDate() % COMPANION_IDEAS.length)
+const companionIdea = computed(() => COMPANION_IDEAS[companionIdeaIndex.value])
+const displayName = computed(() => userStore.userInfo?.nickname || userStore.userInfo?.username || '铲屎官')
+const greeting = computed(() => {
+  const hour = new Date().getHours()
+  if (hour < 11) return '早上好'
+  if (hour < 14) return '中午好'
+  if (hour < 18) return '下午好'
+  return '晚上好'
+})
 
 const categories = ref([])
 const pets = ref([])
@@ -418,6 +482,14 @@ const selectedAddress = computed(() => addresses.value.find((item) => item.id ==
 const shortOfBalance = computed(
   () => !!price.value && Number(wallet.balance ?? 0) < Number(price.value.amount ?? 0)
 )
+
+function nextCompanionIdea() {
+  companionIdeaIndex.value = (companionIdeaIndex.value + 1) % COMPANION_IDEAS.length
+}
+
+function scrollToServices() {
+  document.querySelector('#service-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
 
 function defaultStart() {
   const date = new Date()
@@ -793,15 +865,17 @@ async function onSubmit() {
 onMounted(async () => {
   loadingCategories.value = true
   try {
-    const [cats, myPets, myWallet] = await Promise.all([
+    const [cats, myPets, myWallet, , community] = await Promise.all([
       listCategories(),
       listMyPets(),
       getMyWallet().catch(() => null),
-      loadAddresses()
+      loadAddresses(),
+      pageCommunityPosts({ page: 1, size: 3 }).catch(() => null)
     ])
     categories.value = cats ?? []
     pets.value = myPets ?? []
     if (myWallet) Object.assign(wallet, myWallet)
+    latestPosts.value = community?.records ?? []
     if (pets.value.length === 1) form.petId = pets.value[0].id
   } catch {
     // 请求拦截器已提示
@@ -812,7 +886,207 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.head-card,
+.home-page {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 24px 20px 50px;
+}
+
+.home-hero {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
+  gap: 32px;
+  min-height: 300px;
+  margin-bottom: 20px;
+  padding: 42px 48px;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 8% 15%, rgba(255, 255, 255, 0.8) 0 50px, transparent 52px),
+    linear-gradient(135deg, #e6f2e8 0%, #f7f5e9 60%, #f6e5d8 100%);
+  box-shadow: 0 22px 55px rgba(62, 101, 71, 0.12);
+}
+
+.home-hero::after {
+  content: '🐾';
+  position: absolute;
+  right: 43%;
+  bottom: -18px;
+  opacity: 0.08;
+  font-size: 120px;
+  transform: rotate(-18deg);
+}
+
+.hero-copy {
+  position: relative;
+  z-index: 1;
+}
+
+.hero-eyebrow,
+.section-kicker,
+.wallet-kicker {
+  color: var(--pp-primary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+}
+
+.hero-copy h1 {
+  margin: 12px 0;
+  font-size: clamp(30px, 4vw, 46px);
+  line-height: 1.16;
+}
+
+.hero-copy > p {
+  max-width: 610px;
+  margin: 0;
+  color: var(--pp-muted);
+  line-height: 1.8;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.trust-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-top: 24px;
+  color: var(--pp-primary);
+  font-size: 12px;
+}
+
+.hero-wallet {
+  position: relative;
+  z-index: 1;
+  align-self: center;
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.76);
+  box-shadow: 0 16px 35px rgba(65, 86, 70, 0.1);
+  backdrop-filter: blur(14px);
+}
+
+.wallet-main {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  margin: 16px 0 20px;
+}
+
+.wallet-main > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wallet-main small { color: var(--pp-muted); }
+.wallet-main strong { color: var(--pp-primary); font-size: 24px; }
+.wallet-main strong.frozen { color: var(--pp-ink); font-size: 20px; }
+
+.hero-pets {
+  position: absolute;
+  right: 16px;
+  bottom: 14px;
+  display: flex;
+}
+
+.hero-pets span {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  margin-left: -7px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--pp-tint);
+}
+
+.discovery-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(270px, 0.5fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.community-preview,
+.companion-card {
+  padding: 22px;
+  border: 1px solid var(--pp-tint-2);
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: var(--pp-shadow);
+}
+
+.preview-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.preview-head h2,
+.companion-card h2 {
+  margin: 6px 0 14px;
+  font-size: 20px;
+}
+
+.preview-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.preview-post {
+  display: flex;
+  min-width: 0;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #edf2ee;
+  border-radius: 14px;
+  background: #fbfdfb;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.preview-post:hover { border-color: var(--pp-primary); transform: translateY(-2px); }
+
+.preview-thumb {
+  overflow: hidden;
+  display: grid;
+  flex: 0 0 64px;
+  height: 64px;
+  place-items: center;
+  border-radius: 11px;
+  background: var(--pp-tint);
+  font-size: 24px;
+}
+
+.preview-thumb :deep(.el-image) { width: 100%; height: 100%; }
+.preview-post-main { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+.preview-post-main > span,
+.preview-post-main small { color: var(--pp-muted); font-size: 10px; }
+.preview-post-main strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+
+.companion-card {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(145deg, #fff9ed, #fff);
+}
+
+.companion-icon { display: block; margin-bottom: 12px; font-size: 34px; }
+.companion-card p { min-height: 66px; color: #59685f; line-height: 1.7; }
+.companion-note { margin-top: 18px; padding-top: 12px; border-top: 1px dashed #eadfc9; color: var(--pp-muted); font-size: 11px; line-height: 1.6; }
+
 .balance-alert,
 .section-card {
   margin-bottom: 16px;
@@ -1150,6 +1424,24 @@ onMounted(async () => {
 }
 
 @media (max-width: 760px) {
+  .home-page {
+    padding: 14px 10px 36px;
+  }
+
+  .home-hero {
+    grid-template-columns: 1fr;
+    padding: 30px 24px;
+  }
+
+  .discovery-grid,
+  .preview-list {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-wallet {
+    margin-top: 4px;
+  }
+
   .time-grid,
   .region-row {
     grid-template-columns: 1fr;
