@@ -197,16 +197,16 @@ class FulfillmentServiceTest {
         stubOrder(OrderStatus.TAKEN.getCode(), SITTER_ID);
         when(orderMapper.markCheckedIn(ORDER_ID)).thenReturn(1);
 
-        // 距服务地址约 73 米，落在默认 200 米内
-        service.checkIn(ORDER_ID, checkInAt("31.2310", "121.4740"));
+        // 距服务地址约 400 米，落在默认 500 米内
+        service.checkIn(ORDER_ID, checkInAt("31.2340", "121.4737"));
 
         verify(orderMapper).markCheckedIn(ORDER_ID);
         OrderEvidence evidence = capturedInsert();
         assertThat(evidence.getOrderId()).isEqualTo(ORDER_ID);
         assertThat(evidence.getSitterId()).isEqualTo(SITTER_ID);
         assertThat(evidence.getType()).isEqualTo(EvidenceType.CHECK_IN.getCode());
-        assertThat(evidence.getLat()).isEqualByComparingTo("31.2310");
-        assertThat(evidence.getLng()).isEqualByComparingTo("121.4740");
+        assertThat(evidence.getLat()).isEqualByComparingTo("31.2340");
+        assertThat(evidence.getLng()).isEqualByComparingTo("121.4737");
         // 距离写进备注，用户验收时能看出这次打卡到底准不准
         assertThat(evidence.getRemark()).matches("距服务地址约 \\d+ 米");
         assertThat(Integer.parseInt(evidence.getRemark().replaceAll("\\D", "")))

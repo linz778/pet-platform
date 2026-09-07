@@ -50,7 +50,7 @@ pet-platform:
     prefix: "Bearer "
   geo:
     # 打卡允许的经纬度误差范围（米）
-    check-in-radius: 200
+    check-in-radius: 500
   file:
     # 本地上传目录；相对路径按进程工作目录解析，需要固定位置时用 PET_FILE_DIR 指定绝对路径
     dir: ${PET_FILE_DIR:./uploads}

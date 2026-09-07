@@ -70,7 +70,7 @@ export function cancelTakenOrder(orderId, reason) {
 
 /**
  * 到达定位打卡：已接单 → 服务中。
- * 坐标距服务地址超出后端 pet-platform.geo.check-in-radius（默认 200 米）返回 2004，
+ * 坐标距服务地址超出后端 pet-platform.geo.check-in-radius（默认 500 米）返回 2004，
  * 提示语里带着实际距离，直接弹给用户看即可。
  * @param {number} orderId
  * @param {{lat:number, lng:number}} data

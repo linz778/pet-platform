@@ -15,7 +15,7 @@ public class GeoProperties {
     /**
      * 到达打卡允许的经纬度误差范围（米）。
      * <p>
-     * 室内 WiFi 定位误差常达 50-500 米，本地演示若打卡总失败可调到 500-1000。
+     * 室内 WiFi 定位误差常达 50-500 米，默认允许在服务地址 500 米内打卡。
      */
-    private int checkInRadius = 200;
+    private int checkInRadius = 500;
 }
