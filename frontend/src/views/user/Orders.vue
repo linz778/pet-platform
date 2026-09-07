@@ -4,7 +4,7 @@
       <div class="head">
         <div class="head-text">
           <h2 class="title">📋 我的订单</h2>
-          <p class="subtitle">支付后订单进入接单大厅等待抢单；接单员上门服务并提交存证后，由你验收放款。</p>
+          <p class="subtitle">普通服务由你验收放款；自定义悬赏任务提交照片后由平台审核结算。</p>
         </div>
         <el-button @click="load">刷新</el-button>
       </div>
@@ -30,7 +30,7 @@
           <div class="order-body">
             <div class="order-line">
               <span class="line-label">服务</span>
-              <span>{{ o.categoryName || '未知服务' }}<em v-if="o.unit" class="unit">/ {{ o.unit }}</em></span>
+              <span>{{ o.taskTitle || o.categoryName || '未知服务' }}<em v-if="o.unit" class="unit">/ {{ o.unit }}</em></span>
             </div>
             <div class="order-line">
               <span class="line-label">宠物</span>
@@ -56,7 +56,7 @@
               <el-button v-if="o.status === 0" type="primary" size="small" @click="onPay(o)">立即支付</el-button>
               <el-button v-if="o.status === 0 || o.status === 1" size="small" @click="onCancel(o)">取消订单</el-button>
               <el-button
-                v-if="o.status === 4"
+                v-if="o.status === 4 && o.orderType !== 1"
                 type="success"
                 size="small"
                 :loading="acceptingId === o.id"
@@ -91,7 +91,12 @@
               </el-tag>
               <span class="pay-state">{{ detail.payStatusText }}</span>
             </el-descriptions-item>
-            <el-descriptions-item label="服务">{{ detail.categoryName || '未知服务' }}</el-descriptions-item>
+            <el-descriptions-item :label="detail.orderType === 1 ? '悬赏任务' : '服务'">
+              {{ detail.taskTitle || detail.categoryName || '未知服务' }}
+            </el-descriptions-item>
+            <el-descriptions-item v-if="detail.orderType === 1" label="任务要求">
+              {{ detail.taskDescription }}
+            </el-descriptions-item>
             <el-descriptions-item label="宠物">
               {{ detail.petName || '未知宠物' }}
               <el-tag v-if="detail.petDeleted" size="small" type="info" effect="plain">档案已删除</el-tag>
@@ -110,6 +115,16 @@
             </el-descriptions-item>
           </el-descriptions>
 
+          <el-alert
+            v-if="detail.orderType === 1 && detail.status === 4"
+            class="task-review-alert"
+            type="warning"
+            :closable="false"
+            show-icon
+            title="接单员已提交完成证明，正在等待平台审核"
+            description="审核通过后担保资金自动结算；你无需手动验收。"
+          />
+
           <!-- 未发生的流程节点后端压根不返回该键（Jackson non_null），必须逐个 v-if 守卫，
                否则时间轴上会排出一串 undefined。createTime 一定有值，所以它不用守卫。 -->
           <h4 class="drawer-sub">履约进度</h4>
@@ -125,10 +140,10 @@
               接单员到达并打卡
             </el-timeline-item>
             <el-timeline-item v-if="detail.finishTime" :timestamp="detail.finishTime" type="primary">
-              服务完成，等待验收
+              {{ detail.orderType === 1 ? '任务完成，等待平台审核' : '服务完成，等待验收' }}
             </el-timeline-item>
             <el-timeline-item v-if="detail.acceptTime" :timestamp="detail.acceptTime" type="success">
-              验收通过，已结算
+              {{ detail.orderType === 1 ? '平台审核通过，已结算' : '验收通过，已结算' }}
             </el-timeline-item>
             <el-timeline-item v-if="detail.cancelTime" :timestamp="detail.cancelTime" type="danger">
               订单已取消
@@ -174,7 +189,7 @@
             <el-button v-if="detail.status === 0" type="primary" @click="onPay(detail)">立即支付</el-button>
             <el-button v-if="detail.status === 0 || detail.status === 1" @click="onCancel(detail)">取消订单</el-button>
             <el-button
-              v-if="detail.status === 4 && !arbitration"
+              v-if="detail.status === 4 && detail.orderType !== 1 && !arbitration"
               type="danger"
               plain
               @click="openArbitrationDialog"
@@ -182,7 +197,7 @@
               对订单有问题或不满意
             </el-button>
             <el-button
-              v-if="detail.status === 4"
+              v-if="detail.status === 4 && detail.orderType !== 1"
               type="success"
               :loading="acceptingId === detail.id"
               @click="onAccept(detail)"
@@ -237,7 +252,7 @@ import ImageUpload from '@/components/ImageUpload.vue'
 import OrderReviews from '@/components/OrderReviews.vue'
 import { money } from '@/utils/format'
 
-const TABS = { 0: '待支付', 1: '待接单', 2: '已接单', 3: '服务中', 4: '待验收', 5: '已完成', 6: '已取消', 7: '仲裁中' }
+const TABS = { 0: '待支付', 1: '待接单', 2: '已接单', 3: '服务中', 4: '待验收/审核', 5: '已完成', 6: '已取消', 7: '仲裁中' }
 const STATUS_TAG = { 0: 'warning', 1: 'primary', 2: 'primary', 3: 'primary', 4: 'warning', 5: 'success', 6: 'info', 7: 'danger' }
 
 const activeTab = ref('all')
@@ -544,6 +559,8 @@ onMounted(load)
   font-weight: 600;
   color: var(--pp-primary);
 }
+
+.task-review-alert { margin-top: 16px; }
 
 .arbitration-card {
   margin-top: 18px;
