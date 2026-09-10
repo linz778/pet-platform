@@ -110,6 +110,4 @@ npm run dev
 - **抢单防超卖**：使用 `common/lock/DistributedLock`（Redisson），对 `order:grab:{orderId}` 加锁。
 - **逻辑删除**：实体继承 `BaseEntity`，`deleted` 字段自动逻辑删除；`create_time/update_time` 自动填充。
 
-## 待开发模块（脚手架已预留）
 
-宠物档案、服务选购预约、模拟支付、订单状态流转、LBS 接单大厅、上门打卡与存证、收益钱包、资质审核、订单调度、纠纷仲裁、规则配置、数据看板。
