@@ -3,6 +3,8 @@ package com.pet.security;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pet.common.api.Result;
 import com.pet.common.api.ResultCode;
+import com.pet.entity.User;
+import com.pet.mapper.UserMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +14,7 @@ import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import java.util.Arrays;
+import java.util.Objects;
 
 /**
  * 登录与角色校验拦截器。放行路径在 WebMvcConfig 中配置。
@@ -22,6 +25,7 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     private final JwtUtil jwtUtil;
     private final ObjectMapper objectMapper;
+    private final UserMapper userMapper;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
@@ -42,6 +46,16 @@ public class AuthInterceptor implements HandlerInterceptor {
         LoginUser user = jwtUtil.parseToken(token);
         if (user == null) {
             writeError(response, ResultCode.UNAUTHORIZED);
+            return false;
+        }
+
+        User account = userMapper.selectById(user.getUserId());
+        if (account == null || !Objects.equals(account.getRole(), user.getRole())) {
+            writeError(response, ResultCode.UNAUTHORIZED);
+            return false;
+        }
+        if (!Integer.valueOf(1).equals(account.getStatus())) {
+            writeError(response, ResultCode.ACCOUNT_DISABLED);
             return false;
         }
 

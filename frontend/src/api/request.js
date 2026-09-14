@@ -27,7 +27,7 @@ request.interceptors.response.use(
     if (res.code === 200) {
       return res.data
     }
-    if (res.code === 401) {
+    if ([401, 1003].includes(res.code)) {
       const userStore = useUserStore()
       userStore.logout()
       router.push({ name: 'login' })

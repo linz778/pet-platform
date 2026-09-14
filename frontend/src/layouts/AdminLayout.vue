@@ -9,6 +9,7 @@
         <el-menu-item index="/admin/bounty-review">悬赏审核</el-menu-item>
         <el-menu-item index="/admin/arbitration">纠纷仲裁</el-menu-item>
         <el-menu-item index="/admin/community">社区内容审核</el-menu-item>
+        <el-menu-item index="/admin/users">用户管理</el-menu-item>
         <el-menu-item index="/admin/config">服务规则配置</el-menu-item>
       </el-menu>
     </el-aside>
