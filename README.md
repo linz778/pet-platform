@@ -94,6 +94,15 @@ npm run dev
 
 > **高德地图配置（LBS 接单大厅 / 上门打卡）**：到 [高德开放平台控制台](https://console.amap.com) 申请 **Web端(JS API)** 类型的 key，填入 `frontend/.env.development` 的 `VITE_AMAP_KEY` 与 `VITE_AMAP_SECURITY_CODE`。加载封装见 `src/utils/amap.js`，可复用地图组件见 `src/components/AmapView.vue`。
 
+### 4. 前端自动化测试
+```bash
+cd frontend
+npm test          # 单次运行，提交前使用
+npm run test:watch # 开发时监听文件变化
+```
+
+测试覆盖展示格式化、登录会话和三端路由权限。
+
 ## 种子账号
 
 | 用户名 | 密码 | 角色 |
