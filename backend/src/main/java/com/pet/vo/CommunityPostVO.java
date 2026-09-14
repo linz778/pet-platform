@@ -23,6 +23,7 @@ public class CommunityPostVO {
     private List<String> imageUrls;
     private Integer likeCount;
     private Integer commentCount;
+    private Integer status;
     private boolean liked;
     private LocalDateTime createTime;
 }

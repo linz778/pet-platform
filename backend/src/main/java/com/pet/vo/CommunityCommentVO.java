@@ -9,9 +9,11 @@ import java.time.LocalDateTime;
 public class CommunityCommentVO {
 
     private Long id;
+    private Long postId;
     private String authorName;
     private String authorAvatar;
     private String authorRole;
     private String content;
+    private Integer status;
     private LocalDateTime createTime;
 }

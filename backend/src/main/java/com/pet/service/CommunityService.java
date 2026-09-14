@@ -4,6 +4,7 @@ import com.pet.common.api.PageResult;
 import com.pet.dto.CommunityCommentCreateDTO;
 import com.pet.dto.CommunityPostCreateDTO;
 import com.pet.dto.CommunityPostQuery;
+import com.pet.dto.AdminCommunityQuery;
 import com.pet.vo.CommunityCommentVO;
 import com.pet.vo.CommunityLikeVO;
 import com.pet.vo.CommunityPostVO;
@@ -23,4 +24,12 @@ public interface CommunityService {
     void comment(Long postId, CommunityCommentCreateDTO dto);
 
     CommunityLikeVO toggleLike(Long postId);
+
+    PageResult<CommunityPostVO> adminPagePosts(AdminCommunityQuery query);
+
+    List<CommunityCommentVO> adminListComments(Long postId);
+
+    void setPostStatus(Long postId, int status);
+
+    void setCommentStatus(Long commentId, int status);
 }

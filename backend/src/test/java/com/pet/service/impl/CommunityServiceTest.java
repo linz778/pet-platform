@@ -152,4 +152,21 @@ class CommunityServiceTest {
         assertThat(result.getLikeCount()).isZero();
         verify(likeMapper).removeLike(99L);
     }
+
+    @Test
+    @DisplayName("管理员隐藏评论时同步减少公开回复数")
+    void adminHidesCommentAndAdjustsCount() {
+        CommunityComment comment = new CommunityComment();
+        comment.setId(77L);
+        comment.setPostId(POST_ID);
+        comment.setStatus(1);
+        when(commentMapper.selectById(77L)).thenReturn(comment);
+        when(commentMapper.updateStatus(77L, 1, 0)).thenReturn(1);
+        when(postMapper.adjustCommentCount(POST_ID, -1)).thenReturn(1);
+
+        service.setCommentStatus(77L, 0);
+
+        verify(commentMapper).updateStatus(77L, 1, 0);
+        verify(postMapper).adjustCommentCount(POST_ID, -1);
+    }
 }

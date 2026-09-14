@@ -11,6 +11,7 @@ import com.pet.common.util.CommaListUtil;
 import com.pet.dto.CommunityCommentCreateDTO;
 import com.pet.dto.CommunityPostCreateDTO;
 import com.pet.dto.CommunityPostQuery;
+import com.pet.dto.AdminCommunityQuery;
 import com.pet.entity.CommunityComment;
 import com.pet.entity.CommunityLike;
 import com.pet.entity.CommunityPost;
@@ -99,13 +100,67 @@ public class CommunityServiceImpl extends ServiceImpl<CommunityPostMapper, Commu
                 .eq(CommunityComment::getPostId, postId)
                 .eq(CommunityComment::getStatus, POST_VISIBLE)
                 .orderByAsc(CommunityComment::getId));
+        return toCommentVOs(comments);
+    }
+
+    @Override
+    public PageResult<CommunityPostVO> adminPagePosts(AdminCommunityQuery query) {
+        String keyword = StrUtil.trim(query.getKeyword());
+        var wrapper = Wrappers.<CommunityPost>lambdaQuery()
+                .eq(query.getType() != null, CommunityPost::getType, query.getType())
+                .eq(query.getStatus() != null, CommunityPost::getStatus, query.getStatus())
+                .and(StrUtil.isNotBlank(keyword), w -> w.like(CommunityPost::getTitle, keyword)
+                        .or().like(CommunityPost::getContent, keyword))
+                .orderByDesc(CommunityPost::getId);
+        Page<CommunityPost> page = page(query.toPage(), wrapper);
+        return new PageResult<>(toPostVOs(page.getRecords()), page.getTotal(), page.getCurrent(), page.getSize());
+    }
+
+    @Override
+    public List<CommunityCommentVO> adminListComments(Long postId) {
+        requireAnyPost(postId);
+        return toCommentVOs(commentMapper.selectList(Wrappers.<CommunityComment>lambdaQuery()
+                .eq(CommunityComment::getPostId, postId)
+                .orderByAsc(CommunityComment::getId)));
+    }
+
+    @Override
+    public void setPostStatus(Long postId, int status) {
+        CommunityPost post = requireAnyPost(postId);
+        if (Objects.equals(post.getStatus(), status)) {
+            return;
+        }
+        if (baseMapper.updateStatus(postId, post.getStatus(), status) == 0) {
+            throw new BusinessException(ResultCode.COMMUNITY_POST_NOT_FOUND);
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void setCommentStatus(Long commentId, int status) {
+        CommunityComment comment = commentMapper.selectById(commentId);
+        if (comment == null) {
+            throw new BusinessException(ResultCode.COMMUNITY_COMMENT_NOT_FOUND);
+        }
+        if (Objects.equals(comment.getStatus(), status)) {
+            return;
+        }
+        if (commentMapper.updateStatus(commentId, comment.getStatus(), status) == 0
+                || baseMapper.adjustCommentCount(comment.getPostId(), status == POST_VISIBLE ? 1 : -1) == 0) {
+            throw new BusinessException(ResultCode.COMMUNITY_COMMENT_NOT_FOUND);
+        }
+    }
+
+    private List<CommunityCommentVO> toCommentVOs(List<CommunityComment> comments) {
         Set<Long> authorIds = comments.stream().map(CommunityComment::getAuthorId)
                 .filter(Objects::nonNull).collect(Collectors.toSet());
         Map<Long, User> users = loadUsers(authorIds);
         return comments.stream().map(comment -> {
             CommunityCommentVO vo = new CommunityCommentVO();
             vo.setId(comment.getId());
+            vo.setPostId(comment.getPostId());
             vo.setContent(comment.getContent());
+            vo.setStatus(comment.getStatus());
             vo.setCreateTime(comment.getCreateTime());
             User author = users.get(comment.getAuthorId());
             if (author != null) {
@@ -159,8 +214,16 @@ public class CommunityServiceImpl extends ServiceImpl<CommunityPostMapper, Commu
     }
 
     private CommunityPost requirePost(Long postId) {
-        CommunityPost post = getById(postId);
+        CommunityPost post = requireAnyPost(postId);
         if (post == null || !Integer.valueOf(POST_VISIBLE).equals(post.getStatus())) {
+            throw new BusinessException(ResultCode.COMMUNITY_POST_NOT_FOUND);
+        }
+        return post;
+    }
+
+    private CommunityPost requireAnyPost(Long postId) {
+        CommunityPost post = getById(postId);
+        if (post == null) {
             throw new BusinessException(ResultCode.COMMUNITY_POST_NOT_FOUND);
         }
         return post;
@@ -196,6 +259,7 @@ public class CommunityServiceImpl extends ServiceImpl<CommunityPostMapper, Commu
             vo.setImageUrls(CommaListUtil.split(post.getImages()));
             vo.setLikeCount(post.getLikeCount());
             vo.setCommentCount(post.getCommentCount());
+            vo.setStatus(post.getStatus());
             vo.setLiked(likedIds.contains(post.getId()));
             vo.setCreateTime(post.getCreateTime());
             User author = users.get(post.getAuthorId());
