@@ -9,6 +9,7 @@ import com.pet.entity.SitterProfile;
 import com.pet.mapper.SitterProfileMapper;
 import com.pet.security.LoginUser;
 import com.pet.security.UserContext;
+import com.pet.service.SiteNotificationService;
 import com.pet.vo.SitterProfileVO;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -39,6 +40,9 @@ class SitterProfileServiceTest {
     @Mock
     private SitterProfileMapper mapper;
 
+    @Mock
+    private SiteNotificationService notificationService;
+
     private SitterProfileServiceImpl service;
 
     @BeforeAll
@@ -50,7 +54,7 @@ class SitterProfileServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new SitterProfileServiceImpl();
+        service = new SitterProfileServiceImpl(notificationService);
         ReflectionTestUtils.setField(service, "baseMapper", mapper);
         UserContext.set(new LoginUser(USER_ID, "sitter", "SITTER"));
     }

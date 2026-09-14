@@ -10,6 +10,7 @@ import com.pet.mapper.OrderMapper;
 import com.pet.security.LoginUser;
 import com.pet.security.UserContext;
 import com.pet.service.WalletService;
+import com.pet.service.SiteNotificationService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -49,12 +50,15 @@ class OrderAcceptTest {
     @Mock
     private WalletService walletService;
 
+    @Mock
+    private SiteNotificationService notificationService;
+
     private OrderServiceImpl service;
 
     @BeforeEach
     void setUp() {
         // 验收路径上只用得到订单 mapper 与钱包服务，其余六个依赖全传 null
-        service = new OrderServiceImpl(null, null, null, null, walletService, null, null, null);
+        service = new OrderServiceImpl(null, null, null, null, walletService, null, null, null, notificationService);
         // baseMapper 是 ServiceImpl 的父类字段，@InjectMocks 注不进去，只能反射塞
         ReflectionTestUtils.setField(service, "baseMapper", orderMapper);
         UserContext.set(new LoginUser(OWNER_ID, "user", "USER"));
@@ -170,5 +174,9 @@ class OrderAcceptTest {
 
         verify(walletService).settleOrder(ORDER_ID, OWNER_ID, SITTER_ID,
                 new BigDecimal("54.00"), new BigDecimal("6.00"));
+        verify(notificationService).send(OWNER_ID, "悬赏任务审核完成", "任务证明审核通过，悬赏款已完成结算。",
+                SiteNotificationService.BOUNTY_REVIEW, ORDER_ID);
+        verify(notificationService).send(SITTER_ID, "悬赏任务审核完成", "任务证明审核通过，悬赏款已完成结算。",
+                SiteNotificationService.BOUNTY_REVIEW, ORDER_ID);
     }
 }

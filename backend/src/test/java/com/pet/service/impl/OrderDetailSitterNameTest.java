@@ -50,7 +50,7 @@ class OrderDetailSitterNameTest {
     @BeforeEach
     void setUp() {
         service = new OrderServiceImpl(null, petMapper, userMapper, serviceCategoryService,
-                null, null, null, null);
+                null, null, null, null, null);
         ReflectionTestUtils.setField(service, "baseMapper", orderMapper);
         UserContext.set(new LoginUser(OWNER_ID, "user", "USER"));
     }

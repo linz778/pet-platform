@@ -18,6 +18,7 @@
       <el-header class="header">
         <span class="title">{{ route.meta.title || '管理端' }}</span>
         <div class="right">
+          <NotificationBell />
           <span class="nick">{{ userStore.userInfo?.nickname || userStore.userInfo?.username }}</span>
           <el-button link type="danger" @click="onLogout">退出</el-button>
         </div>
@@ -32,6 +33,7 @@
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import NotificationBell from '@/components/NotificationBell.vue'
 
 const route = useRoute()
 const router = useRouter()

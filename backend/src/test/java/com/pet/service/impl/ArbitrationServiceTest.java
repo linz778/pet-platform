@@ -15,6 +15,7 @@ import com.pet.mapper.OrderMapper;
 import com.pet.security.LoginUser;
 import com.pet.security.UserContext;
 import com.pet.service.WalletService;
+import com.pet.service.SiteNotificationService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -55,11 +56,14 @@ class ArbitrationServiceTest {
     @Mock
     private WalletService walletService;
 
+    @Mock
+    private SiteNotificationService notificationService;
+
     private ArbitrationServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new ArbitrationServiceImpl(orderMapper, null, null, walletService);
+        service = new ArbitrationServiceImpl(orderMapper, null, null, walletService, notificationService);
         ReflectionTestUtils.setField(service, "baseMapper", arbitrationMapper);
     }
 
@@ -137,6 +141,10 @@ class ArbitrationServiceTest {
         verify(orderMapper).markArbitrationRefunded(eq(ORDER_ID), any());
         verify(walletService).refundOrder(ORDER_ID, OWNER_ID, new BigDecimal("35.00"),
                 "平台仲裁通过，担保资金退回余额");
+        verify(notificationService).send(eq(OWNER_ID), eq("订单申诉处理完成"), any(),
+                eq(SiteNotificationService.ARBITRATION), eq(ORDER_ID));
+        verify(notificationService).send(eq(SITTER_ID), eq("订单申诉处理完成"), any(),
+                eq(SiteNotificationService.ARBITRATION), eq(ORDER_ID));
     }
 
     @Test

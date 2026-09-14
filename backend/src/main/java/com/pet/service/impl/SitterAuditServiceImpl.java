@@ -15,6 +15,7 @@ import com.pet.entity.User;
 import com.pet.mapper.SitterProfileMapper;
 import com.pet.mapper.UserMapper;
 import com.pet.service.SitterAuditService;
+import com.pet.service.SiteNotificationService;
 import com.pet.vo.SitterAuditVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -34,6 +35,7 @@ public class SitterAuditServiceImpl implements SitterAuditService {
 
     private final SitterProfileMapper profileMapper;
     private final UserMapper userMapper;
+    private final SiteNotificationService notificationService;
 
     @Override
     public PageResult<SitterAuditVO> page(SitterAuditQuery query) {
@@ -77,6 +79,9 @@ public class SitterAuditServiceImpl implements SitterAuditService {
         profile.setCreditLevel(creditLevel);
         profile.setAvailable(available);
         profile.setUpdateTime(LocalDateTime.now());
+        notificationService.send(profile.getUserId(), approved ? "资质审核已通过" : "资质审核未通过",
+                approved ? "你的接单员资质已通过审核，现在可以开始接单。" : "审核意见：" + remark,
+                SiteNotificationService.SITTER_AUDIT, profileId);
         return toVO(profile, userMapper.selectById(profile.getUserId()));
     }
 

@@ -13,9 +13,11 @@ import com.pet.entity.SitterProfile;
 import com.pet.mapper.SitterProfileMapper;
 import com.pet.security.UserContext;
 import com.pet.service.SitterProfileService;
+import com.pet.service.SiteNotificationService;
 import com.pet.vo.SitterProfileVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -26,6 +28,7 @@ public class SitterProfileServiceImpl extends ServiceImpl<SitterProfileMapper, S
 
     /** 可接单 */
     private static final int AVAILABLE = 1;
+    private final SiteNotificationService notificationService;
 
     @Override
     public void initProfile(Long userId) {
@@ -38,6 +41,7 @@ public class SitterProfileServiceImpl extends ServiceImpl<SitterProfileMapper, S
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public SitterProfileVO submit(SitterProfileSaveDTO dto) {
         SitterProfile profile = loadOrInit(UserContext.userId());
         if (Integer.valueOf(AuditStatus.APPROVED.getCode()).equals(profile.getAuditStatus())) {
@@ -58,6 +62,9 @@ public class SitterProfileServiceImpl extends ServiceImpl<SitterProfileMapper, S
                 .set(SitterProfile::getAuditStatus, AuditStatus.PENDING.getCode())
                 .set(SitterProfile::getAuditRemark, null)
                 .set(SitterProfile::getUpdateTime, LocalDateTime.now()));
+
+        notificationService.sendToAdmins("收到新的资质申请", dto.getRealName() + " 提交了接单员资质，请及时审核。",
+                SiteNotificationService.SITTER_AUDIT, profile.getId());
 
         return toVO(getById(profile.getId()));
     }

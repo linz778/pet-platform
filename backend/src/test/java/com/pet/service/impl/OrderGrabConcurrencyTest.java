@@ -100,7 +100,7 @@ class OrderGrabConcurrencyTest {
     /** 前五个依赖在抢单路径上用不到，全传 null；用得到的三个才给 mock。 */
     private OrderServiceImpl newService(DistributedLock grabLock) {
         OrderServiceImpl service = new OrderServiceImpl(
-                null, null, userMapper, null, null, sitterProfileService, geoIndex, grabLock);
+                null, null, userMapper, null, null, sitterProfileService, geoIndex, grabLock, null);
         // baseMapper 是 ServiceImpl 的父类字段，@InjectMocks 注不进去，只能反射塞
         ReflectionTestUtils.setField(service, "baseMapper", orderMapper);
         return service;

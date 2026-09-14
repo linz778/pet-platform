@@ -53,7 +53,7 @@ class SitterOrderCancelTest {
     @BeforeEach
     void setUp() {
         service = new OrderServiceImpl(null, null, null, null, walletService,
-                sitterProfileService, null, null);
+                sitterProfileService, null, null, null);
         ReflectionTestUtils.setField(service, "baseMapper", orderMapper);
         UserContext.set(new LoginUser(SITTER_ID, "sitter", "SITTER"));
     }

@@ -34,6 +34,7 @@ import com.pet.service.OrderService;
 import com.pet.service.ServiceCategoryService;
 import com.pet.service.PetService;
 import com.pet.service.SitterProfileService;
+import com.pet.service.SiteNotificationService;
 import com.pet.service.WalletService;
 import com.pet.vo.HallOrderVO;
 import com.pet.vo.OrderDetailVO;
@@ -97,6 +98,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
     private final SitterProfileService sitterProfileService;
     private final OrderGeoIndex geoIndex;
     private final DistributedLock lock;
+    private final SiteNotificationService notificationService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -394,11 +396,15 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             }
             walletService.settleOrder(orderId, order.getUserId(), order.getSitterId(),
                     order.getSitterIncome(), order.getCommission());
-            return;
-        }
-        if (baseMapper.markBountyRejected(orderId, result) == 0) {
+        } else if (baseMapper.markBountyRejected(orderId, result) == 0) {
             throw new BusinessException(ResultCode.ORDER_STATUS_ILLEGAL);
         }
+        String outcome = Boolean.TRUE.equals(dto.getApproved())
+                ? "任务证明审核通过，悬赏款已完成结算。" : "任务证明审核未通过：" + result;
+        notificationService.send(order.getUserId(), "悬赏任务审核完成", outcome,
+                SiteNotificationService.BOUNTY_REVIEW, orderId);
+        notificationService.send(order.getSitterId(), "悬赏任务审核完成", outcome,
+                SiteNotificationService.BOUNTY_REVIEW, orderId);
     }
 
     @Override

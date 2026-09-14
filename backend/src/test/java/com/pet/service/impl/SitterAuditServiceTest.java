@@ -7,6 +7,7 @@ import com.pet.entity.SitterProfile;
 import com.pet.entity.User;
 import com.pet.mapper.SitterProfileMapper;
 import com.pet.mapper.UserMapper;
+import com.pet.service.SiteNotificationService;
 import com.pet.vo.SitterAuditVO;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +24,7 @@ class SitterAuditServiceTest {
 
     @Mock private SitterProfileMapper profileMapper;
     @Mock private UserMapper userMapper;
+    @Mock private SiteNotificationService notificationService;
 
     @Test
     void approvalMakesSitterAvailableAndReturnsUpdatedStatus() {
@@ -34,13 +36,15 @@ class SitterAuditServiceTest {
         dto.setApproved(true);
         dto.setCreditLevel(4);
 
-        SitterAuditVO result = new SitterAuditServiceImpl(profileMapper, userMapper).decide(11L, dto);
+        SitterAuditVO result = new SitterAuditServiceImpl(profileMapper, userMapper, notificationService).decide(11L, dto);
 
         assertThat(result.getAuditStatus()).isEqualTo(1);
         assertThat(result.getAuditStatusText()).isEqualTo("已通过");
         assertThat(result.getAvailable()).isEqualTo(1);
         assertThat(result.getCreditLevel()).isEqualTo(4);
         assertThat(result.getIdCardMasked()).doesNotContain("19900101");
+        verify(notificationService).send(3L, "资质审核已通过", "你的接单员资质已通过审核，现在可以开始接单。",
+                SiteNotificationService.SITTER_AUDIT, 11L);
     }
 
     @Test
@@ -53,7 +57,7 @@ class SitterAuditServiceTest {
         dto.setApproved(false);
         dto.setRemark("  健康证明已过期  ");
 
-        SitterAuditVO result = new SitterAuditServiceImpl(profileMapper, userMapper).decide(11L, dto);
+        SitterAuditVO result = new SitterAuditServiceImpl(profileMapper, userMapper, notificationService).decide(11L, dto);
 
         assertThat(result.getAuditStatus()).isEqualTo(2);
         assertThat(result.getAuditRemark()).isEqualTo("健康证明已过期");
@@ -68,7 +72,7 @@ class SitterAuditServiceTest {
         SitterAuditDecisionDTO dto = new SitterAuditDecisionDTO();
         dto.setApproved(true);
 
-        assertThatThrownBy(() -> new SitterAuditServiceImpl(profileMapper, userMapper).decide(11L, dto))
+        assertThatThrownBy(() -> new SitterAuditServiceImpl(profileMapper, userMapper, notificationService).decide(11L, dto))
                 .isInstanceOf(BusinessException.class)
                 .extracting("code")
                 .isEqualTo(ResultCode.SITTER_AUDIT_STATUS_ILLEGAL.getCode());

@@ -34,11 +34,11 @@ request.interceptors.response.use(
       ElMessage.error(res.message || '登录已过期，请重新登录')
       return Promise.reject(new Error(res.message))
     }
-    ElMessage.error(res.message || '请求失败')
+    if (!response.config.silent) ElMessage.error(res.message || '请求失败')
     return Promise.reject(new Error(res.message || 'Error'))
   },
   (error) => {
-    ElMessage.error(error.message || '网络异常')
+    if (!error.config?.silent) ElMessage.error(error.message || '网络异常')
     return Promise.reject(error)
   }
 )

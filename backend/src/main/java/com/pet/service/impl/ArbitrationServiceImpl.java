@@ -24,6 +24,7 @@ import com.pet.mapper.UserMapper;
 import com.pet.security.UserContext;
 import com.pet.service.ArbitrationService;
 import com.pet.service.ServiceCategoryService;
+import com.pet.service.SiteNotificationService;
 import com.pet.service.WalletService;
 import com.pet.vo.ArbitrationVO;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +48,7 @@ public class ArbitrationServiceImpl extends ServiceImpl<ArbitrationMapper, Arbit
     private final UserMapper userMapper;
     private final ServiceCategoryService serviceCategoryService;
     private final WalletService walletService;
+    private final SiteNotificationService notificationService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -80,6 +82,11 @@ public class ArbitrationServiceImpl extends ServiceImpl<ArbitrationMapper, Arbit
         arbitration.setStatus(ArbitrationStatus.PENDING.getCode());
         arbitration.setRefundAmount(BigDecimal.ZERO);
         save(arbitration);
+        notificationService.send(order.getSitterId(), "订单收到用户申诉",
+                "订单 " + order.getOrderNo() + " 收到用户申诉，请在订单详情中查看。",
+                SiteNotificationService.ARBITRATION, orderId);
+        notificationService.sendToAdmins("收到新的订单申诉", "订单 " + order.getOrderNo() + " 等待平台仲裁。",
+                SiteNotificationService.ARBITRATION, arbitration.getId());
     }
 
     @Override
@@ -141,6 +148,12 @@ public class ArbitrationServiceImpl extends ServiceImpl<ArbitrationMapper, Arbit
         } else if (orderMapper.markArbitrationRejected(order.getId()) == 0) {
             throw new BusinessException(ResultCode.ORDER_STATUS_ILLEGAL);
         }
+
+        String outcome = approved ? "申诉已通过，¥" + order.getAmount() + " 已退回用户余额。" : "申诉未通过，订单已恢复为待验收。";
+        notificationService.send(order.getUserId(), "订单申诉处理完成", outcome + " 处理意见：" + result,
+                SiteNotificationService.ARBITRATION, order.getId());
+        notificationService.send(order.getSitterId(), "订单申诉处理完成", outcome + " 处理意见：" + result,
+                SiteNotificationService.ARBITRATION, order.getId());
     }
 
     private Order requireOrder(Long orderId) {
