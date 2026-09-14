@@ -45,6 +45,7 @@ const routes = [
       { path: 'arbitration', name: 'admin-arbitration', component: () => import('@/views/admin/Arbitration.vue'), meta: { roles: ['ADMIN'] } },
       { path: 'community', name: 'admin-community', component: () => import('@/views/admin/CommunityReview.vue'), meta: { roles: ['ADMIN'], title: '社区内容审核' } },
       { path: 'users', name: 'admin-users', component: () => import('@/views/admin/UserManagement.vue'), meta: { roles: ['ADMIN'], title: '用户管理' } },
+      { path: 'sitters', name: 'admin-sitters', component: () => import('@/views/admin/SitterManagement.vue'), meta: { roles: ['ADMIN'], title: '接单员管理' } },
       { path: 'config', name: 'admin-config', component: () => import('@/views/admin/Config.vue'), meta: { roles: ['ADMIN'] } }
     ]
   },

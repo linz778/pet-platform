@@ -2,9 +2,11 @@ package com.pet.controller;
 
 import com.pet.common.api.PageResult;
 import com.pet.common.api.Result;
+import com.pet.dto.AdminSitterQuery;
 import com.pet.dto.AdminUserQuery;
 import com.pet.security.RequireRole;
 import com.pet.service.AdminAccountService;
+import com.pet.vo.AdminSitterVO;
 import com.pet.vo.AdminUserVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -40,6 +42,26 @@ public class AdminAccountController {
     @PutMapping("/users/{id}/status")
     public Result<Void> userStatus(@PathVariable Long id, @RequestParam @Min(0) @Max(1) int status) {
         adminAccountService.setUserStatus(id, status);
+        return Result.success();
+    }
+
+    @Operation(summary = "接单员分页")
+    @GetMapping("/sitters/page")
+    public Result<PageResult<AdminSitterVO>> sitters(@Valid AdminSitterQuery query) {
+        return Result.success(adminAccountService.pageSitters(query));
+    }
+
+    @Operation(summary = "启用或禁用接单员账号")
+    @PutMapping("/sitters/{id}/status")
+    public Result<Void> sitterStatus(@PathVariable Long id, @RequestParam @Min(0) @Max(1) int status) {
+        adminAccountService.setSitterStatus(id, status);
+        return Result.success();
+    }
+
+    @Operation(summary = "设置接单员是否可接单")
+    @PutMapping("/sitters/{id}/available")
+    public Result<Void> sitterAvailable(@PathVariable Long id, @RequestParam @Min(0) @Max(1) int status) {
+        adminAccountService.setSitterAvailable(id, status);
         return Result.success();
     }
 }
