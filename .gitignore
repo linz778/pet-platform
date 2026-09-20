@@ -15,6 +15,7 @@ Thumbs.db
 # 日志与环境
 *.log
 logs/
+/.env
 .env.local
 .env.*.local
 

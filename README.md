@@ -50,7 +50,17 @@ Petplatform/
 ## 快速开始
 
 ### 0. 前置
-确保本机已安装并启动：JDK 21、Maven、MySQL 9、Redis、Node 24 / npm。
+确保本机已安装 JDK 21、Maven、Node 24 / npm。MySQL 与 Redis 可本机安装，也可直接使用 Docker Compose。
+
+推荐的最小基础设施启动方式：
+
+```powershell
+Copy-Item .env.example .env
+# 修改 .env 中的 MYSQL_PASSWORD 与 JWT_SECRET
+docker compose up -d
+```
+
+Compose 只运行 MySQL 与 Redis，首次启动会自动导入 `docs/sql/init.sql`；修改初始化脚本后如需重建数据，执行 `docker compose down -v` 再启动。
 
 ### 1. 初始化数据库
 ```bash
@@ -80,6 +90,15 @@ $env:JWT_SECRET = "至少32字节的随机密钥"
 cd backend
 mvn spring-boot:run
 ```
+
+使用根目录 `.env` 时，可先在 PowerShell 当前进程加载变量：
+
+```powershell
+Get-Content .env | Where-Object { $_ -match '^[^#].+=' } | ForEach-Object {
+  $name, $value = $_ -split '=', 2
+  Set-Item -Path "Env:$name" -Value $value
+}
+```
 - 服务地址：http://localhost:8080/api
 - 健康检查：http://localhost:8080/api/health （返回 MySQL / Redis 连通状态）
 - 接口文档：http://localhost:8080/api/swagger-ui.html
@@ -102,6 +121,16 @@ npm run test:watch # 开发时监听文件变化
 ```
 
 测试覆盖展示格式化、登录会话和三端路由权限；推送前端改动或提交 Pull Request 时，GitHub Actions 会自动执行测试与生产构建。
+
+### 5. 三角色真实订单烟雾测试
+
+服务启动后，在仓库根目录执行：
+
+```powershell
+.\scripts\smoke-order.ps1
+```
+
+脚本会使用种子账号实际走完：用户充值并发布悬赏 → 接单员抢单、打卡、上传证明、完成服务 → 管理员审核结算，并校验三端订单状态、资金与站内消息。
 
 ## 种子账号
 
