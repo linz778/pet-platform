@@ -113,14 +113,17 @@ npm run dev
 
 > **高德地图配置（LBS 接单大厅 / 上门打卡）**：到 [高德开放平台控制台](https://console.amap.com) 申请 **Web端(JS API)** 类型的 key，填入 `frontend/.env.development` 的 `VITE_AMAP_KEY` 与 `VITE_AMAP_SECURITY_CODE`。加载封装见 `src/utils/amap.js`，可复用地图组件见 `src/components/AmapView.vue`。
 
-### 4. 前端自动化测试
+### 4. 自动化测试
 ```bash
 cd frontend
-npm test          # 单次运行，提交前使用
-npm run test:watch # 开发时监听文件变化
+npm ci
+npm test                 # 单元与组件测试
+npm run build
+npx playwright install chromium
+npm run test:e2e         # Chromium 中验证登录与权限跳转
 ```
 
-测试覆盖展示格式化、登录会话和三端路由权限；推送前端改动或提交 Pull Request 时，GitHub Actions 会自动执行测试与生产构建。
+后端单元测试不需要外部服务：`cd backend && mvn test`。`mvn verify` 还会启动真实 HTTP 服务，连接 MySQL、Redis 并测试注册、鉴权、数据库落库和缓存读写；需先准备**专用临时数据库**并导入 `docs/sql/init.sql`，绝不能对已有业务库执行该脚本（它会重建表）。GitHub Actions 会自动准备隔离的 MySQL/Redis 并运行前后端全部测试。
 
 ### 5. 三角色真实订单烟雾测试
 
