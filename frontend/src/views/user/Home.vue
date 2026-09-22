@@ -55,7 +55,7 @@
                   {{ post.typeText }}
                 </el-tag>
               </header>
-              <h3>{{ post.title }}</h3>
+              <h3 v-if="post.title && post.title !== post.content?.slice(0, 100)">{{ post.title }}</h3>
               <p>{{ post.content }}</p>
               <div v-if="post.imageUrls?.length" class="moment-images" :class="{ single: post.imageUrls.length === 1 }">
                 <div v-for="(url, index) in post.imageUrls.slice(0, 3)" :key="url" class="moment-image-wrap">

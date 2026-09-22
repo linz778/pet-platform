@@ -67,7 +67,7 @@
                 <el-avatar :size="24" :src="post.petAvatar">🐾</el-avatar>
                 今日主角 · {{ post.petName }}
               </div>
-              <h2>{{ post.title }}</h2>
+              <h2 v-if="post.title && post.title !== post.content?.slice(0, 100)">{{ post.title }}</h2>
               <p>{{ post.content }}</p>
               <div v-if="post.imageUrls?.length" class="post-images" :class="`count-${Math.min(post.imageUrls.length, 3)}`">
                 <el-image
@@ -115,9 +115,6 @@
             <el-option v-for="pet in pets" :key="pet.id" :label="`${pet.name} · ${pet.species || '小宠物'}`" :value="pet.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="标题" prop="title">
-          <el-input v-model="postForm.title" maxlength="100" show-word-limit :placeholder="postForm.type === 1 ? '今天发生了什么有趣的事？' : '用一句话概括你的问题'" />
-        </el-form-item>
         <el-form-item label="正文" prop="content">
           <el-input
             v-model="postForm.content"
@@ -144,7 +141,7 @@
           <el-tag :type="currentPost.type === 2 ? 'warning' : 'success'">{{ currentPost.typeText }}</el-tag>
           <span>{{ currentPost.createTime }}</span>
         </div>
-        <h2>{{ currentPost.title }}</h2>
+        <h2 v-if="currentPost.title && currentPost.title !== currentPost.content?.slice(0, 100)">{{ currentPost.title }}</h2>
         <div class="detail-author">
           <el-avatar :src="currentPost.authorAvatar">{{ currentPost.authorName?.slice(0, 1) }}</el-avatar>
           <div><strong>{{ currentPost.authorName }}</strong><span v-if="currentPost.petName">和 {{ currentPost.petName }}</span></div>
@@ -224,10 +221,9 @@ const pets = ref([])
 const composerVisible = ref(false)
 const postFormRef = ref(null)
 const publishing = ref(false)
-const postForm = reactive({ type: 1, petId: null, title: '', content: '', imageUrls: [] })
+const postForm = reactive({ type: 1, petId: null, content: '', imageUrls: [] })
 const postRules = {
   type: [{ required: true, message: '请选择发布类型', trigger: 'change' }],
-  title: [{ required: true, message: '请填写标题', trigger: 'blur' }],
   content: [{ required: true, message: '请填写正文', trigger: 'blur' }]
 }
 
@@ -270,12 +266,17 @@ function onPageChange(page) {
 }
 
 async function openComposer(type) {
-  Object.assign(postForm, { type, petId: null, title: '', content: '', imageUrls: [] })
+  Object.assign(postForm, { type, petId: null, content: '', imageUrls: [] })
   if (pets.value.length === 0) pets.value = await listMyPets().catch(() => [])
   composerVisible.value = true
 }
 
 async function publish() {
+  const content = postForm.content.trim()
+  if (!content) {
+    ElMessage.warning('请填写正文')
+    return
+  }
   try {
     await postFormRef.value?.validate()
   } catch {
@@ -286,8 +287,8 @@ async function publish() {
     await createCommunityPost({
       type: postForm.type,
       petId: postForm.petId,
-      title: postForm.title.trim(),
-      content: postForm.content.trim(),
+      title: content.slice(0, 100),
+      content,
       imageUrls: postForm.imageUrls
     })
     ElMessage.success(postForm.type === 1 ? '分享成功，快邀请大家来送爪印吧' : '问题发布成功，等待热心伙伴回答')

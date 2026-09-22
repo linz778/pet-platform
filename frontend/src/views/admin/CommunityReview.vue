@@ -12,7 +12,7 @@
       <el-select v-model="query.status" clearable placeholder="全部展示状态" @change="changeFilter">
         <el-option label="公开" :value="1" /><el-option label="已隐藏" :value="0" />
       </el-select>
-      <el-input v-model="query.keyword" clearable placeholder="搜索标题或正文" @keyup.enter="changeFilter" />
+      <el-input v-model="query.keyword" clearable placeholder="搜索动态内容" @keyup.enter="changeFilter" />
       <el-button :loading="loading" @click="changeFilter">查询</el-button>
     </section>
 
@@ -22,7 +22,7 @@
           <template #default="{ row }"><strong>{{ row.authorName || '未知用户' }}</strong><small>{{ row.authorRole === 'SITTER' ? '接单员' : '宠物主人' }}</small></template>
         </el-table-column>
         <el-table-column label="内容" min-width="350">
-          <template #default="{ row }"><div class="post-title"><el-tag size="small" effect="plain">{{ row.typeText }}</el-tag><strong>{{ row.title }}</strong></div><p>{{ row.content }}</p></template>
+          <template #default="{ row }"><div class="post-title"><el-tag size="small" effect="plain">{{ row.typeText }}</el-tag><strong v-if="row.title && row.title !== row.content?.slice(0, 100)">{{ row.title }}</strong></div><p>{{ row.content }}</p></template>
         </el-table-column>
         <el-table-column label="互动" width="110"><template #default="{ row }">🐾 {{ row.likeCount || 0 }}　💬 {{ row.commentCount || 0 }}</template></el-table-column>
         <el-table-column prop="createTime" label="发布时间" width="170" />
@@ -37,7 +37,7 @@
       <el-pagination v-if="total" layout="total, prev, pager, next" :total="total" :page-size="query.size" :current-page="query.page" @current-change="changePage" />
     </section>
 
-    <el-dialog v-model="commentVisible" :title="`评论审核 · ${currentPost?.title || ''}`" width="680px">
+    <el-dialog v-model="commentVisible" :title="`评论审核 · ${currentPost?.content?.slice(0, 20) || ''}`" width="680px">
       <div v-loading="commentLoading" class="comment-list">
         <el-empty v-if="!commentLoading && !comments.length" description="该帖子暂无评论" />
         <article v-for="item in comments" :key="item.id" :class="{ hidden: item.status === 0 }">
@@ -82,7 +82,7 @@ function changePage(page) { query.page = page; loadPosts() }
 async function togglePost(post) {
   const status = post.status === 1 ? 0 : 1
   const action = status === 0 ? '隐藏' : '恢复'
-  const confirmed = await ElMessageBox.confirm(`确认${action}「${post.title}」吗？`, `${action}社区内容`, { type: status === 0 ? 'warning' : 'success' }).catch(() => false)
+  const confirmed = await ElMessageBox.confirm(`确认${action}「${post.content.slice(0, 30)}」吗？`, `${action}社区内容`, { type: status === 0 ? 'warning' : 'success' }).catch(() => false)
   if (!confirmed) return
   await setCommunityPostStatus(post.id, status)
   post.status = status
