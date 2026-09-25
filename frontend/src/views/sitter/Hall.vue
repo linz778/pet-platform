@@ -138,86 +138,98 @@
         </div>
       </el-card>
 
-      <el-card v-if="showMap" class="section-card map-card">
-        <AmapView :center="[center.lng, center.lat]" :zoom="13" height="340px" @loaded="onMapLoaded" @error="onMapError" />
-        <p class="map-hint">每个标记是一单待接订单，点下方的订单卡片可以把地图移到它的位置。</p>
-      </el-card>
-      <el-alert
-        v-else
-        class="section-card"
-        type="info"
-        show-icon
-        :closable="false"
-        :title="mapBroken ? '地图加载失败，已切换为列表模式' : '地图未启用，已切换为列表模式'"
-      >
-        <template #default>
-          {{
-            mapBroken
-              ? '高德地图加载失败，通常是 key 无效、域名未加白名单或配额用尽。'
-              : '未配置高德地图 key（.env.development 里的 VITE_AMAP_KEY）。'
-          }}
-          抢单完全不受影响，下面的列表已经按距离由近到远排好。
-        </template>
-      </el-alert>
+      <div class="hall-main-grid">
+        <el-card class="map-card">
+          <div class="panel-heading">
+            <div><h3>附近订单地图</h3><span>查看待接单的分布位置</span></div>
+            <el-button v-if="showMap" plain type="primary" @click="mapDetailVisible = true">地图详情</el-button>
+          </div>
+          <template v-if="showMap">
+            <AmapView :center="[center.lng, center.lat]" :zoom="13" height="420px" @loaded="onMapLoaded" @error="onMapError" />
+            <p class="map-hint">每个标记是一单待接订单；点击右侧订单卡片可定位。</p>
+          </template>
+          <el-alert
+            v-else
+            type="info"
+            show-icon
+            :closable="false"
+            :title="mapBroken ? '地图加载失败，已切换为列表模式' : '地图未启用，已切换为列表模式'"
+          >
+            <template #default>
+              {{ mapBroken ? '请检查高德地图 key、域名白名单或配额。' : '请配置 VITE_AMAP_KEY。' }}
+              右侧订单仍可正常查看和抢单。
+            </template>
+          </el-alert>
+        </el-card>
 
-      <el-card>
-        <div v-loading="loading" class="list-wrap">
-          <el-empty v-if="!loading && orders.length === 0" :description="`附近 ${radiusKm} 公里内暂时没有待接单的订单`">
-            <el-button @click="widenRadius">扩大检索范围</el-button>
-          </el-empty>
+        <el-card class="orders-card">
+          <div class="panel-heading">
+            <div><h3>待接订单</h3><span>附近 {{ radiusKm }} 公里 · {{ total }} 单</span></div>
+          </div>
+          <div v-loading="loading" class="list-wrap">
+            <el-empty v-if="!loading && orders.length === 0" :description="`附近 ${radiusKm} 公里内暂时没有待接单的订单`">
+              <el-button @click="widenRadius">扩大检索范围</el-button>
+            </el-empty>
 
-          <article v-for="o in orders" :key="o.id" class="hall-card" @click="focusOnMap(o)">
-            <header class="hall-top">
-              <div class="hall-title">
-                <span class="hall-emoji">{{ CATEGORY_EMOJI[o.categoryCode] ?? '🐾' }}</span>
-                <span class="hall-name">{{ o.taskTitle || o.categoryName || '未知服务' }}</span>
-                <el-tag v-if="o.orderType === 1" size="small" effect="dark" type="warning">悬赏</el-tag>
-                <el-tag v-if="o.unit" size="small" effect="plain" type="info">/ {{ o.unit }}</el-tag>
+            <article v-for="o in orders" :key="o.id" class="hall-card" @click="focusOnMap(o)">
+              <header class="hall-top">
+                <div class="hall-title">
+                  <span class="hall-emoji">{{ CATEGORY_EMOJI[o.categoryCode] ?? '🐾' }}</span>
+                  <span class="hall-name">{{ o.taskTitle || o.categoryName || '未知服务' }}</span>
+                  <el-tag v-if="o.orderType === 1" size="small" effect="dark" type="warning">悬赏</el-tag>
+                </div>
+                <span class="hall-distance">📍 {{ distanceText(o.distanceKm) || '距离未知' }}</span>
+              </header>
+              <div class="hall-summary">
+                <span>🐾 {{ o.petName || '未知宠物' }}</span>
+                <span>🕒 {{ o.serviceStart }}</span>
+                <span>📍 {{ o.serviceAddress }}</span>
               </div>
-              <span class="hall-distance">📍 {{ distanceText(o.distanceKm) || '距离未知' }}</span>
-            </header>
+              <footer class="hall-foot">
+                <div class="income"><span class="income-label">到手</span><span class="income-value">¥{{ money(o.sitterIncome) }}</span></div>
+                <div class="hall-actions">
+                  <el-button size="small" @click.stop="openOrderDetail(o)">订单详情</el-button>
+                  <el-button type="primary" size="small" :loading="grabbingId === o.id" @click.stop="onGrab(o)">立即抢单</el-button>
+                </div>
+              </footer>
+            </article>
+          </div>
 
-            <div class="hall-body">
-              <div v-if="o.taskDescription" class="hall-line">
-                <span class="line-label">任务</span>
-                <span>{{ o.taskDescription }}</span>
-              </div>
-              <div class="hall-line">
-                <span class="line-label">宠物</span>
-                <span>{{ o.petName || '未知' }}<em v-if="o.petSpecies" class="muted"> · {{ o.petSpecies }}</em></span>
-              </div>
-              <div class="hall-line">
-                <span class="line-label">时间</span>
-                <span>{{ o.serviceStart }}<template v-if="o.serviceEnd"> ~ {{ o.serviceEnd }}</template></span>
-              </div>
-              <div class="hall-line">
-                <span class="line-label">地址</span>
-                <span>{{ o.serviceAddress }}</span>
-              </div>
-            </div>
-
-            <footer class="hall-foot">
-              <div class="income">
-                <span class="income-label">到手</span>
-                <span class="income-value">¥{{ money(o.sitterIncome) }}</span>
-                <span class="income-note">订单总额 ¥{{ money(o.amount) }}</span>
-              </div>
-              <el-button type="primary" :loading="grabbingId === o.id" @click.stop="onGrab(o)">立即抢单</el-button>
-            </footer>
-          </article>
-        </div>
-
-        <el-pagination
-          v-if="total > 0"
-          class="pager"
-          layout="total, prev, pager, next"
-          :total="total"
-          :current-page="query.page"
-          :page-size="query.size"
-          @current-change="onPageChange"
-        />
-      </el-card>
+          <el-pagination
+            v-if="total > 0"
+            class="pager"
+            layout="prev, pager, next"
+            :total="total"
+            :current-page="query.page"
+            :page-size="query.size"
+            @current-change="onPageChange"
+          />
+        </el-card>
+      </div>
     </template>
+
+    <el-dialog v-model="mapDetailVisible" title="附近订单地图详情" width="min(1100px, 92vw)" destroy-on-close @close="onDetailMapClosed">
+      <AmapView v-if="mapDetailVisible && showMap" :center="[center.lng, center.lat]" :zoom="13" height="min(65vh, 620px)" @loaded="onDetailMapLoaded" @error="onMapError" />
+      <p class="map-hint">地图标记对应当前列表中的待接订单，搜索位置与半径在大厅上方调整。</p>
+    </el-dialog>
+
+    <el-dialog v-model="orderDetailVisible" title="待接订单详情" width="min(620px, 92vw)" @closed="selectedOrder = null">
+      <el-descriptions v-if="selectedOrder" :column="1" border>
+        <el-descriptions-item label="订单号">{{ selectedOrder.orderNo }}</el-descriptions-item>
+        <el-descriptions-item :label="selectedOrder.orderType === 1 ? '悬赏任务' : '服务项目'">{{ selectedOrder.taskTitle || selectedOrder.categoryName }}</el-descriptions-item>
+        <el-descriptions-item v-if="selectedOrder.taskDescription" label="任务要求">{{ selectedOrder.taskDescription }}</el-descriptions-item>
+        <el-descriptions-item label="宠物">{{ selectedOrder.petName || '未知宠物' }}<span v-if="selectedOrder.petSpecies"> · {{ selectedOrder.petSpecies }}</span></el-descriptions-item>
+        <el-descriptions-item label="上门时间">{{ selectedOrder.serviceStart }}<template v-if="selectedOrder.serviceEnd"> ~ {{ selectedOrder.serviceEnd }}</template></el-descriptions-item>
+        <el-descriptions-item label="服务地址">{{ selectedOrder.serviceAddress }}</el-descriptions-item>
+        <el-descriptions-item label="距离">{{ distanceText(selectedOrder.distanceKm) || '未知' }}</el-descriptions-item>
+        <el-descriptions-item label="订单总额">¥{{ money(selectedOrder.amount) }}</el-descriptions-item>
+        <el-descriptions-item label="预计到手">¥{{ money(selectedOrder.sitterIncome) }}</el-descriptions-item>
+      </el-descriptions>
+      <template #footer>
+        <el-button @click="orderDetailVisible = false">关闭</el-button>
+        <el-button v-if="selectedOrder" type="primary" :loading="grabbingId === selectedOrder.id" @click="onGrab(selectedOrder)">立即抢单</el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog v-model="addressBookVisible" title="接单搜索地址簿" width="680px" top="5vh">
       <template v-if="!addressEditorVisible">
@@ -498,6 +510,9 @@ const orders = ref([])
 const total = ref(0)
 const loading = ref(false)
 const grabbingId = ref(null)
+const selectedOrder = ref(null)
+const orderDetailVisible = ref(false)
+const mapDetailVisible = ref(false)
 const query = reactive({ page: 1, size: 10 })
 
 const petNotes = ref([])
@@ -540,6 +555,8 @@ const profileRules = {
 let amapRef = null
 let mapInstance = null
 let markers = []
+let detailMapInstance = null
+let detailMarkers = []
 
 async function load() {
   loading.value = true
@@ -566,6 +583,7 @@ function applyCenter(lng, lat, source) {
   center.lat = Number(Number(lat).toFixed(7))
   locationSource.value = source
   mapInstance?.setCenter([center.lng, center.lat])
+  detailMapInstance?.setCenter([center.lng, center.lat])
 }
 
 /** 浏览器定位只在 HTTPS 或 localhost 下可用，被拒 / 超时时退回档案坐标，再退回演示默认值。 */
@@ -975,35 +993,57 @@ function onMapLoaded({ AMap, map }) {
   renderMarkers()
 }
 
+function onDetailMapLoaded({ AMap, map }) {
+  amapRef = AMap
+  detailMapInstance = map
+  renderMarkers()
+}
+
+function onDetailMapClosed() {
+  detailMapInstance = null
+  detailMarkers = []
+}
+
 function onMapError() {
   // AmapView 内部已 console.error，这里切到列表模式，别留一个空白灰盒子
   mapBroken.value = true
+  mapDetailVisible.value = false
   amapRef = null
   mapInstance = null
   markers = []
+  onDetailMapClosed()
 }
 
 function renderMarkers() {
-  if (!mapInstance || !amapRef) return
-  if (markers.length) {
-    mapInstance.remove(markers)
-    markers = []
-  }
-  markers = orders.value
+  markers = renderMapMarkers(mapInstance, markers)
+  detailMarkers = renderMapMarkers(detailMapInstance, detailMarkers)
+}
+
+function renderMapMarkers(map, oldMarkers) {
+  if (!map || !amapRef) return oldMarkers
+  if (oldMarkers.length) map.remove(oldMarkers)
+  return orders.value
     .filter((o) => o.addressLng != null && o.addressLat != null)
     .map((o) => {
       const marker = new amapRef.Marker({
         position: [Number(o.addressLng), Number(o.addressLat)],
         title: `${o.categoryName || '服务'} · ${distanceText(o.distanceKm)} · 到手 ¥${money(o.sitterIncome)}`
       })
-      mapInstance.add(marker)
+      map.add(marker)
       return marker
     })
 }
 
 function focusOnMap(order) {
-  if (!mapInstance || order.addressLng == null || order.addressLat == null) return
-  mapInstance.setZoomAndCenter(15, [Number(order.addressLng), Number(order.addressLat)])
+  if (order.addressLng == null || order.addressLat == null) return
+  for (const map of [mapInstance, detailMapInstance]) {
+    map?.setZoomAndCenter(15, [Number(order.addressLng), Number(order.addressLat)])
+  }
+}
+
+function openOrderDetail(order) {
+  selectedOrder.value = order
+  orderDetailVisible.value = true
 }
 
 async function onGrab(order) {
@@ -1069,6 +1109,7 @@ async function onSubmitProfile() {
 onBeforeUnmount(() => {
   markers = []
   mapInstance = null
+  onDetailMapClosed()
   amapRef = null
 })
 
@@ -1378,6 +1419,19 @@ onMounted(async () => {
   }
 }
 
+.hall-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(340px, 1fr);
+  align-items: stretch;
+  gap: 16px;
+}
+
+.hall-main-grid > * { min-width: 0; }
+.orders-card :deep(.el-card__body) { display: flex; flex-direction: column; height: 100%; box-sizing: border-box; }
+.panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.panel-heading h3 { margin: 0 0 4px; font-size: 17px; }
+.panel-heading span { color: var(--pp-muted); font-size: 12px; }
+
 .map-hint {
   margin: 8px 0 0;
   font-size: 12px;
@@ -1390,6 +1444,8 @@ onMounted(async () => {
   flex-direction: column;
   gap: 12px;
 }
+
+.orders-card .list-wrap { flex: 1; max-height: 450px; overflow-y: auto; padding-right: 3px; }
 
 .hall-card {
   padding: 16px;
@@ -1409,7 +1465,8 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
   padding-bottom: 10px;
   border-bottom: 1px dashed var(--pp-tint-2);
 }
@@ -1418,6 +1475,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .hall-emoji {
@@ -1426,6 +1484,9 @@ onMounted(async () => {
 
 .hall-name {
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .hall-distance {
@@ -1435,34 +1496,14 @@ onMounted(async () => {
   white-space: nowrap;
 }
 
-.hall-body {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 8px 24px;
-  padding: 12px 0;
-}
-
-.hall-line {
-  display: flex;
-  gap: 8px;
-  font-size: 13px;
-  align-items: baseline;
-}
-
-.line-label {
-  flex: 0 0 34px;
-  color: var(--pp-muted);
-}
-
-.muted {
-  font-style: normal;
-  color: var(--pp-muted);
-}
+.hall-summary { display: flex; flex-direction: column; gap: 7px; padding: 12px 0; color: var(--pp-muted); font-size: 12px; }
+.hall-summary span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .hall-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
   padding-top: 10px;
   border-top: 1px dashed var(--pp-tint-2);
@@ -1485,10 +1526,8 @@ onMounted(async () => {
   color: var(--pp-primary);
 }
 
-.income-note {
-  font-size: 12px;
-  color: var(--pp-muted);
-}
+.hall-actions { display: flex; gap: 6px; }
+.hall-actions .el-button + .el-button { margin-left: 0; }
 
 .pager {
   margin-top: 16px;
@@ -1505,5 +1544,10 @@ onMounted(async () => {
   margin: 0;
   font-size: 12px;
   color: var(--pp-muted);
+}
+
+@media (max-width: 960px) {
+  .hall-main-grid { grid-template-columns: 1fr; }
+  .orders-card .list-wrap { max-height: none; }
 }
 </style>
